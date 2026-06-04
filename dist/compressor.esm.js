@@ -5,7 +5,7 @@
  * Copyright 2018-present Chen Fengyuan
  * Released under the MIT license
  *
- * Date: 2026-06-04T12:29:32.935Z
+ * Date: 2026-06-04T12:36:41.742Z
  */
 
 function _classCallCheck(a, n) {
