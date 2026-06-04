@@ -5,7 +5,7 @@
  * Copyright 2018-present Chen Fengyuan
  * Released under the MIT license
  *
- * Date: 2026-04-06T07:12:45.816Z
+ * Date: 2026-06-04T12:00:06.269Z
  */
 
 (function (global, factory) {
