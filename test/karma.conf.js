@@ -1,9 +1,8 @@
 const puppeteer = require('puppeteer');
 const rollupConfig = require('../rollup.config');
 
-process.env.CHROME_BIN = puppeteer.executablePath();
-
-module.exports = (config) => {
+module.exports = async (config) => {
+  process.env.CHROME_BIN = await puppeteer.executablePath();
   config.set({
     autoWatch: false,
     basePath: '..',
