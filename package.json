@@ -13,16 +13,15 @@
   ],
   "scripts": {
     "build": "rollup -c",
-    "clean": "del-cli dist",
-    "compress": "uglifyjs dist/compressor.js -o dist/compressor.min.js -c -m --comments /^!/",
+    "clean": "node --eval \"require('fs').rmSync('dist', { recursive: true, force: true })\"",
     "dev": "rollup -c -m -w",
     "lint": "npm run lint:js && npm run lint:css",
     "lint:css": "stylelint docs/**/*.css --fix",
     "lint:js": "eslint src test *.js --fix",
-    "prepare": "husky install",
-    "release": "npm run clean && npm run lint && npm run build && npm run compress && npm test",
+    "prepare": "husky",
+    "release": "npm run clean && npm run lint && npm run build && npm test",
     "start": "npm run dev",
-    "test": "cross-env NODE_ENV=test karma start test/karma.conf.js"
+    "test": "NODE_ENV=test karma start test/karma.conf.js"
   },
   "repository": {
     "type": "git",
@@ -56,19 +55,12 @@
     }
   },
   "devDependencies": {
-    "@babel/core": "^7.29.7",
-    "@babel/plugin-transform-object-assign": "^7.29.7",
-    "@babel/preset-env": "^7.29.7",
     "@commitlint/cli": "^21.0.2",
     "@commitlint/config-conventional": "^21.0.2",
-    "@rollup/plugin-babel": "^7.1.0",
     "@rollup/plugin-commonjs": "^29.0.3",
     "@rollup/plugin-node-resolve": "^16.0.3",
-    "@rollup/plugin-replace": "^6.0.3",
-    "babel-plugin-istanbul": "^8.0.0",
+    "@rollup/plugin-terser": "^1.0.0",
     "chai": "^4.5.0",
-    "cross-env": "^10.1.0",
-    "del-cli": "^7.0.0",
     "eslint": "^8.57.1",
     "eslint-config-airbnb-base": "^15.0.0",
     "eslint-plugin-import": "^2.32.0",
@@ -79,14 +71,12 @@
     "karma-coverage-istanbul-reporter": "^3.0.3",
     "karma-mocha": "^2.0.1",
     "karma-mocha-reporter": "^2.2.5",
-    "karma-rollup-preprocessor": "^7.0.8",
     "lint-staged": "^17.0.7",
     "mocha": "^11.7.6",
     "puppeteer": "^25.1.0",
     "rollup": "^4.61.1",
     "stylelint": "^17.12.0",
     "stylelint-config-standard": "^40.0.0",
-    "stylelint-order": "^8.1.1",
-    "uglify-js": "^3.19.3"
+    "stylelint-order": "^8.1.1"
   }
 }

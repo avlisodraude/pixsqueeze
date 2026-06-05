@@ -1,7 +1,6 @@
-const { babel } = require('@rollup/plugin-babel');
+const terser = require('@rollup/plugin-terser');
 const commonjs = require('@rollup/plugin-commonjs');
 const { nodeResolve } = require('@rollup/plugin-node-resolve');
-const replace = require('@rollup/plugin-replace');
 const pkg = require('./package.json');
 
 const libName = pkg.name.replace('js', '');
@@ -39,24 +38,19 @@ module.exports = {
     {
       banner,
       name,
+      file: `dist/${libName}.min.js`,
+      format: 'umd',
+      plugins: [terser({ format: { comments: /^!/ } })],
+    },
+    {
+      banner,
+      name,
       file: `docs/js/${libName}.js`,
       format: 'umd',
     },
   ],
   plugins: [
     nodeResolve(),
-    commonjs(),
-    babel({
-      babelHelpers: 'bundled',
-    }),
-    replace({
-      delimiters: ['', ''],
-      exclude: ['node_modules/**'],
-      preventAssignment: true,
-      '(function (module) {': `(function (module) {
-  if (typeof window === 'undefined') {
-    return;
-  }`,
-    }),
+    commonjs({ include: 'node_modules/**' }),
   ],
 };

@@ -1,9 +1,7 @@
 const puppeteer = require('puppeteer');
 const rollup = require('rollup');
-const { babel } = require('@rollup/plugin-babel');
 const { nodeResolve } = require('@rollup/plugin-node-resolve');
 const commonjs = require('@rollup/plugin-commonjs');
-const replace = require('@rollup/plugin-replace');
 const path = require('path');
 const rollupConfig = require('../rollup.config');
 
@@ -17,13 +15,6 @@ function createRollupPreprocessor(args, config, emitter, logger) {
         plugins: [
           nodeResolve(),
           commonjs({ include: 'node_modules/**' }),
-          babel({ babelHelpers: 'bundled' }),
-          replace({
-            delimiters: ['', ''],
-            exclude: ['node_modules/**'],
-            preventAssignment: true,
-            '(function (module) {': `(function (module) {\n  if (typeof window === 'undefined') {\n    return;\n  }`,
-          }),
         ],
       });
       const { output } = await bundle.generate({
