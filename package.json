@@ -48,10 +48,6 @@
     "url": "https://github.com/fengyuanchen/compressorjs/issues"
   },
   "homepage": "https://fengyuanchen.github.io/compressorjs",
-  "dependencies": {
-    "blueimp-canvas-to-blob": "^3.29.0",
-    "is-blob": "^2.1.0"
-  },
   "overrides": {
     "@tootallnate/once": ">=2.0.1",
     "mocha": {
@@ -71,8 +67,6 @@
     "@rollup/plugin-replace": "^6.0.3",
     "babel-plugin-istanbul": "^8.0.0",
     "chai": "^4.5.0",
-    "change-case": "^4.1.2",
-    "create-banner": "^2.0.0",
     "cross-env": "^10.1.0",
     "del-cli": "^7.0.0",
     "eslint": "^8.57.1",

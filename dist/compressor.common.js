@@ -5,9 +5,8 @@
  * Copyright 2018-present Chen Fengyuan
  * Released under the MIT license
  *
- * Date: 2026-06-05T09:37:31.553Z
+ * Date: 2026-06-05T10:27:09.150Z
  */
-
 'use strict';
 
 function _classCallCheck(a, n) {
@@ -76,150 +75,6 @@ function _toPropertyKey(t) {
   var i = _toPrimitive(t, "string");
   return "symbol" == typeof i ? i : i + "";
 }
-
-function getDefaultExportFromCjs (x) {
-	return x && x.__esModule && Object.prototype.hasOwnProperty.call(x, 'default') ? x['default'] : x;
-}
-
-var canvasToBlob = {exports: {}};
-
-/*
- * JavaScript Canvas to Blob
- * https://github.com/blueimp/JavaScript-Canvas-to-Blob
- *
- * Copyright 2012, Sebastian Tschan
- * https://blueimp.net
- *
- * Licensed under the MIT license:
- * https://opensource.org/licenses/MIT
- *
- * Based on stackoverflow user Stoive's code snippet:
- * http://stackoverflow.com/q/4998908
- */
-var hasRequiredCanvasToBlob;
-function requireCanvasToBlob() {
-  if (hasRequiredCanvasToBlob) return canvasToBlob.exports;
-  hasRequiredCanvasToBlob = 1;
-  (function (module) {
-  if (typeof window === 'undefined') {
-    return;
-  }
-    (function (window) {
-
-      var CanvasPrototype = window.HTMLCanvasElement && window.HTMLCanvasElement.prototype;
-      var hasBlobConstructor = window.Blob && function () {
-        try {
-          return Boolean(new Blob());
-        } catch (e) {
-          return false;
-        }
-      }();
-      var hasArrayBufferViewSupport = hasBlobConstructor && window.Uint8Array && function () {
-        try {
-          return new Blob([new Uint8Array(100)]).size === 100;
-        } catch (e) {
-          return false;
-        }
-      }();
-      var BlobBuilder = window.BlobBuilder || window.WebKitBlobBuilder || window.MozBlobBuilder || window.MSBlobBuilder;
-      var dataURIPattern = /^data:((.*?)(;charset=.*?)?)(;base64)?,/;
-      var dataURLtoBlob = (hasBlobConstructor || BlobBuilder) && window.atob && window.ArrayBuffer && window.Uint8Array && function (dataURI) {
-        var matches, mediaType, isBase64, dataString, byteString, arrayBuffer, intArray, i, bb;
-        // Parse the dataURI components as per RFC 2397
-        matches = dataURI.match(dataURIPattern);
-        if (!matches) {
-          throw new Error('invalid data URI');
-        }
-        // Default to text/plain;charset=US-ASCII
-        mediaType = matches[2] ? matches[1] : 'text/plain' + (matches[3] || ';charset=US-ASCII');
-        isBase64 = !!matches[4];
-        dataString = dataURI.slice(matches[0].length);
-        if (isBase64) {
-          // Convert base64 to raw binary data held in a string:
-          byteString = atob(dataString);
-        } else {
-          // Convert base64/URLEncoded data component to raw binary:
-          byteString = decodeURIComponent(dataString);
-        }
-        // Write the bytes of the string to an ArrayBuffer:
-        arrayBuffer = new ArrayBuffer(byteString.length);
-        intArray = new Uint8Array(arrayBuffer);
-        for (i = 0; i < byteString.length; i += 1) {
-          intArray[i] = byteString.charCodeAt(i);
-        }
-        // Write the ArrayBuffer (or ArrayBufferView) to a blob:
-        if (hasBlobConstructor) {
-          return new Blob([hasArrayBufferViewSupport ? intArray : arrayBuffer], {
-            type: mediaType
-          });
-        }
-        bb = new BlobBuilder();
-        bb.append(arrayBuffer);
-        return bb.getBlob(mediaType);
-      };
-      if (window.HTMLCanvasElement && !CanvasPrototype.toBlob) {
-        if (CanvasPrototype.mozGetAsFile) {
-          CanvasPrototype.toBlob = function (callback, type, quality) {
-            var self = this;
-            setTimeout(function () {
-              if (quality && CanvasPrototype.toDataURL && dataURLtoBlob) {
-                callback(dataURLtoBlob(self.toDataURL(type, quality)));
-              } else {
-                callback(self.mozGetAsFile('blob', type));
-              }
-            });
-          };
-        } else if (CanvasPrototype.toDataURL && dataURLtoBlob) {
-          if (CanvasPrototype.msToBlob) {
-            CanvasPrototype.toBlob = function (callback, type, quality) {
-              var self = this;
-              setTimeout(function () {
-                if ((type && type !== 'image/png' || quality) && CanvasPrototype.toDataURL && dataURLtoBlob) {
-                  callback(dataURLtoBlob(self.toDataURL(type, quality)));
-                } else {
-                  callback(self.msToBlob(type));
-                }
-              });
-            };
-          } else {
-            CanvasPrototype.toBlob = function (callback, type, quality) {
-              var self = this;
-              setTimeout(function () {
-                callback(dataURLtoBlob(self.toDataURL(type, quality)));
-              });
-            };
-          }
-        }
-      }
-      if (module.exports) {
-        module.exports = dataURLtoBlob;
-      } else {
-        window.dataURLtoBlob = dataURLtoBlob;
-      }
-    })(window);
-  })(canvasToBlob);
-  return canvasToBlob.exports;
-}
-
-var canvasToBlobExports = requireCanvasToBlob();
-var toBlob = /*@__PURE__*/getDefaultExportFromCjs(canvasToBlobExports);
-
-var isBlob$1;
-var hasRequiredIsBlob;
-function requireIsBlob() {
-  if (hasRequiredIsBlob) return isBlob$1;
-  hasRequiredIsBlob = 1;
-  isBlob$1 = function isBlob(value) {
-    if (typeof Blob === 'undefined') {
-      return false;
-    }
-    return value instanceof Blob || Object.prototype.toString.call(value) === '[object Blob]';
-  };
-  return isBlob$1;
-}
-
-var isBlobExports = requireIsBlob();
-var isBlob = /*@__PURE__*/getDefaultExportFromCjs(isBlobExports);
 
 var DEFAULTS = {
   /**
@@ -693,7 +548,37 @@ function insertExif(arrayBuffer, exifArray) {
   return new Uint8Array(newArrayBuffer);
 }
 
-var ArrayBuffer$1 = WINDOW.ArrayBuffer,
+/**
+ * Check if the given value is a Blob or File object.
+ * @param {*} value - The value to check.
+ * @returns {boolean} Returns `true` if the given value is a Blob, else `false`.
+ */
+function isBlob(value) {
+  if (typeof Blob === 'undefined') {
+    return false;
+  }
+  return value instanceof Blob || Object.prototype.toString.call(value) === '[object Blob]';
+}
+
+/**
+ * Convert a data URL to a Blob object.
+ * @param {string} dataURL - The data URL to convert.
+ * @returns {Blob} The result Blob object.
+ */
+function dataURLtoBlob(dataURL) {
+  var arr = dataURL.split(',');
+  var mime = arr[0].match(/:(.*?);/)[1];
+  var binary = atob(arr[1]);
+  var bytes = new Uint8Array(binary.length);
+  for (var i = 0; i < binary.length; i += 1) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return new Blob([bytes], {
+    type: mime
+  });
+}
+
+var ArrayBuffer = WINDOW.ArrayBuffer,
   FileReader = WINDOW.FileReader;
 var URL = WINDOW.URL || WINDOW.webkitURL;
 var REGEXP_EXTENSION = /\.\w+$/;
@@ -738,7 +623,7 @@ var Compressor = /*#__PURE__*/function () {
         this.fail(new Error('The current browser does not support image compression.'));
         return;
       }
-      if (!ArrayBuffer$1) {
+      if (!ArrayBuffer) {
         options.checkOrientation = false;
         options.retainExif = false;
       }
@@ -987,7 +872,7 @@ var Compressor = /*#__PURE__*/function () {
           };
           if (blob && isJPEGImage && options.retainExif && _this3.exif && _this3.exif.length > 0) {
             var next = function next(arrayBuffer) {
-              return done(toBlob(arrayBufferToDataURL(insertExif(arrayBuffer, _this3.exif), options.mimeType)));
+              return done(dataURLtoBlob(arrayBufferToDataURL(insertExif(arrayBuffer, _this3.exif), options.mimeType)));
             };
             if (blob.arrayBuffer) {
               blob.arrayBuffer().then(next).catch(function () {
@@ -1019,7 +904,7 @@ var Compressor = /*#__PURE__*/function () {
       if (canvas.toBlob) {
         canvas.toBlob(callback, options.mimeType, options.quality);
       } else {
-        callback(toBlob(canvas.toDataURL(options.mimeType, options.quality)));
+        callback(dataURLtoBlob(canvas.toDataURL(options.mimeType, options.quality)));
       }
     }
   }, {

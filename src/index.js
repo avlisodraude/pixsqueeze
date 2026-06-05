@@ -1,15 +1,15 @@
-import toBlob from 'blueimp-canvas-to-blob';
-import isBlob from 'is-blob';
 import DEFAULTS from './defaults';
 import {
   WINDOW,
 } from './constants';
 import {
   arrayBufferToDataURL,
+  dataURLtoBlob,
   getAdjustedSizes,
   getExif,
   imageTypeToExtension,
   insertExif,
+  isBlob,
   isCanvasAvailable,
   isImageType,
   isPositiveNumber,
@@ -318,7 +318,7 @@ export default class Compressor {
         });
 
         if (blob && isJPEGImage && options.retainExif && this.exif && this.exif.length > 0) {
-          const next = (arrayBuffer) => done(toBlob(arrayBufferToDataURL(
+          const next = (arrayBuffer) => done(dataURLtoBlob(arrayBufferToDataURL(
             insertExif(arrayBuffer, this.exif),
             options.mimeType,
           )));
@@ -354,7 +354,7 @@ export default class Compressor {
     if (canvas.toBlob) {
       canvas.toBlob(callback, options.mimeType, options.quality);
     } else {
-      callback(toBlob(canvas.toDataURL(options.mimeType, options.quality)));
+      callback(dataURLtoBlob(canvas.toDataURL(options.mimeType, options.quality)));
     }
   }
 

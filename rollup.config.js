@@ -1,20 +1,20 @@
 const { babel } = require('@rollup/plugin-babel');
-const changeCase = require('change-case');
 const commonjs = require('@rollup/plugin-commonjs');
-const createBanner = require('create-banner');
 const { nodeResolve } = require('@rollup/plugin-node-resolve');
 const replace = require('@rollup/plugin-replace');
 const pkg = require('./package.json');
 
-pkg.name = pkg.name.replace('js', '');
-
-const name = changeCase.pascalCase(pkg.name);
-const banner = createBanner({
-  data: {
-    name: `${name}.js`,
-    year: '2018-present',
-  },
-});
+const libName = pkg.name.replace('js', '');
+const name = libName.charAt(0).toUpperCase() + libName.slice(1);
+const banner = `/*!
+ * ${name}.js v${pkg.version}
+ * ${pkg.homepage}
+ *
+ * Copyright 2018-present ${pkg.author.name}
+ * Released under the ${pkg.license} license
+ *
+ * Date: ${new Date().toISOString()}
+ */`;
 
 module.exports = {
   input: 'src/index.js',
@@ -22,24 +22,24 @@ module.exports = {
     {
       banner,
       name,
-      file: `dist/${pkg.name}.js`,
+      file: `dist/${libName}.js`,
       format: 'umd',
     },
     {
       banner,
-      file: `dist/${pkg.name}.common.js`,
+      file: `dist/${libName}.common.js`,
       format: 'cjs',
       exports: 'auto',
     },
     {
       banner,
-      file: `dist/${pkg.name}.esm.js`,
+      file: `dist/${libName}.esm.js`,
       format: 'esm',
     },
     {
       banner,
       name,
-      file: `docs/js/${pkg.name}.js`,
+      file: `docs/js/${libName}.js`,
       format: 'umd',
     },
   ],

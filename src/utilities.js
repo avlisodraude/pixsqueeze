@@ -384,3 +384,34 @@ export function insertExif(arrayBuffer, exifArray) {
 
   return new Uint8Array(newArrayBuffer);
 }
+
+/**
+ * Check if the given value is a Blob or File object.
+ * @param {*} value - The value to check.
+ * @returns {boolean} Returns `true` if the given value is a Blob, else `false`.
+ */
+export function isBlob(value) {
+  if (typeof Blob === 'undefined') {
+    return false;
+  }
+
+  return value instanceof Blob || Object.prototype.toString.call(value) === '[object Blob]';
+}
+
+/**
+ * Convert a data URL to a Blob object.
+ * @param {string} dataURL - The data URL to convert.
+ * @returns {Blob} The result Blob object.
+ */
+export function dataURLtoBlob(dataURL) {
+  const arr = dataURL.split(',');
+  const mime = arr[0].match(/:(.*?);/)[1];
+  const binary = atob(arr[1]);
+  const bytes = new Uint8Array(binary.length);
+
+  for (let i = 0; i < binary.length; i += 1) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+
+  return new Blob([bytes], { type: mime });
+}
