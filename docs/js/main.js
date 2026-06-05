@@ -4,6 +4,49 @@ window.addEventListener('DOMContentLoaded', function () {
   var XMLHttpRequest = window.XMLHttpRequest;
   var Compressor = window.Compressor;
 
+  // ── HEIC helpers (inline, no import needed in plain-JS demo) ─────────────
+
+  var HEIC_MIME_RE = /^image\/hei[cf]/i;
+
+  /**
+   * Returns a Promise<boolean> — true if the file is HEIC/HEIF.
+   * Checks the MIME type first; falls back to reading the first 12 bytes so
+   * that iOS files with an empty `type` field are still detected correctly.
+   */
+  function isHeicFile(file) {
+    if (HEIC_MIME_RE.test(file.type)) return Promise.resolve(true);
+    if (file.type && !file.type.startsWith('image/')) return Promise.resolve(false);
+    return file.slice(0, 12).arrayBuffer().then(function (buf) {
+      var bytes = new Uint8Array(buf);
+      var ftyp = String.fromCharCode(bytes[4], bytes[5], bytes[6], bytes[7]);
+      var brand = String.fromCharCode(bytes[8], bytes[9], bytes[10], bytes[11]);
+      return ftyp === 'ftyp' && /^hei[cfxs]|^hevc|^mif1|^msf1/.test(brand);
+    }).catch(function () { return false; });
+  }
+
+  /**
+   * POST the HEIC file to the server, get back a JPEG File object.
+   */
+  function convertHeicOnServer(file) {
+    var form = new FormData();
+    form.append('file', file);
+    return fetch('/api/convert/heic', { method: 'POST', body: form })
+      .then(function (res) {
+        if (!res.ok) {
+          return res.json().catch(function () { return {}; }).then(function (json) {
+            throw new Error('HEIC conversion failed: ' + (json.error || res.status));
+          });
+        }
+        var serverName = res.headers.get('X-Original-Name');
+        var outputName = serverName || (file.name || 'image.heic').replace(/\.heic$/i, '.jpg');
+        return res.blob().then(function (blob) {
+          return new File([blob], outputName, { type: 'image/jpeg' });
+        });
+      });
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+
   Vue.component('VueCompareImage', window.vueCompareImage);
 
   new Vue({
@@ -74,12 +117,21 @@ window.addEventListener('DOMContentLoaded', function () {
 
         console.log('Input: ', file);
 
-        if (URL) {
-          this.inputURL = URL.createObjectURL(file);
-        }
+        var vm = this;
 
-        this.input = file;
-        new Compressor(file, this.options);
+        isHeicFile(file).then(function (heic) {
+          if (!heic) return file;
+          console.log('HEIC detected — converting on server…');
+          return convertHeicOnServer(file);
+        }).then(function (resolvedFile) {
+          if (URL) {
+            vm.inputURL = URL.createObjectURL(resolvedFile);
+          }
+          vm.input = resolvedFile;
+          new Compressor(resolvedFile, vm.options);
+        }).catch(function (err) {
+          window.alert(err.message);
+        });
       },
 
       change: function (e) {
