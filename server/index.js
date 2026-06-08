@@ -1,13 +1,48 @@
 'use strict';
 
 const path = require('path');
+const { Worker } = require('worker_threads');
 const express = require('express');
+const compression = require('compression');
 const multer = require('multer');
-const heicConvert = require('heic-convert');
 const sharp = require('sharp');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Gzip/brotli for static assets (HTML/CSS/JS) and JSON error responses.
+// JPEG binary responses are excluded automatically (already compressed).
+app.use(compression());
+
+// ─── HEIC worker pool ────────────────────────────────────────────────────────
+
+/**
+ * Run HEIC → JPEG conversion in a dedicated worker thread so the
+ * main event loop is not blocked during the CPU-intensive WASM decode.
+ *
+ * A new Worker is created per request. For a production deployment with
+ * sustained traffic a fixed-size thread pool would be more efficient, but
+ * for a local / small-scale server this is the simplest correct approach.
+ *
+ * @param {Buffer} buffer  - Raw HEIC file bytes.
+ * @param {number} quality - JPEG quality (0–1).
+ * @returns {Promise<Buffer>} Resolved with the JPEG output buffer.
+ */
+function heicConvertInWorker(buffer, quality) {
+  return new Promise((resolve, reject) => {
+    const worker = new Worker(path.join(__dirname, 'heic-worker.js'));
+
+    worker.once('message', ({ ok, result, error }) => {
+      if (ok) resolve(result);
+      else reject(new Error(error));
+    });
+
+    worker.once('error', reject);
+
+    // Transfer the buffer's underlying ArrayBuffer to avoid copying it.
+    worker.postMessage({ buffer, quality }, [buffer.buffer]);
+  });
+}
 
 // Store uploads in memory — no temp files on disk
 // 200 MB ceiling: uncompressed professional TIFFs and multi-frame RAW files can
@@ -85,11 +120,7 @@ app.post('/api/convert/heic', async (req, res) => {
   }
 
   try {
-    const outputBuffer = await heicConvert({
-      buffer: buffer,
-      format: 'JPEG',
-      quality: 0.95,
-    });
+    const outputBuffer = await heicConvertInWorker(buffer, 0.95);
 
     const outputName = (originalname || 'image.heic').replace(/\.heic$/i, '.jpg');
 
@@ -243,8 +274,13 @@ app.post('/api/convert/raw', async (req, res) => {
 
 // ─── Static demo ─────────────────────────────────────────────────────────────
 
-// Serve the docs/ demo so you can open http://localhost:3000 to test end-to-end
-app.use(express.static(path.join(__dirname, '..', 'docs')));
+// Serve the docs/ demo so you can open http://localhost:3000 to test end-to-end.
+// Static assets (JS/CSS/HTML) are cached for 1 hour in the browser; this avoids
+// re-fetching compressor.js on every demo reload.
+app.use(express.static(path.join(__dirname, '..', 'docs'), {
+  maxAge: '1h',
+  etag: true,
+}));
 
 // ─── Start ───────────────────────────────────────────────────────────────────
 
