@@ -1,10 +1,10 @@
 # Compressor.js
 
-[![Coverage Status](https://img.shields.io/codecov/c/github/fengyuanchen/compressorjs.svg)](https://codecov.io/gh/fengyuanchen/compressorjs) [![Downloads](https://img.shields.io/npm/dm/compressorjs.svg)](https://www.npmjs.com/package/compressorjs) [![Version](https://img.shields.io/npm/v/compressorjs.svg)](https://www.npmjs.com/package/compressorjs) [![Gzip Size](https://img.shields.io/bundlephobia/minzip/compressorjs.svg)](https://unpkg.com/compressorjs/dist/compressor.common.js)
+[![Coverage Status](https://img.shields.io/codecov/c/github/avlisodraude/compressme.svg)](https://codecov.io/gh/avlisodraude/compressme) [![Downloads](https://img.shields.io/npm/dm/compressorjs.svg)](https://www.npmjs.com/package/compressorjs) [![Version](https://img.shields.io/npm/v/compressorjs.svg)](https://www.npmjs.com/package/compressorjs) [![Gzip Size](https://img.shields.io/bundlephobia/minzip/compressorjs.svg)](https://unpkg.com/compressorjs/dist/compressor.common.js)
 
 > JavaScript image compressor. Uses the Browser's native [HTMLCanvasElement.toBlob()](https://developer.mozilla.org/en-US/docs/Web/API/HTMLCanvasElement/toBlob) method to do the compression work, which means it is **lossy compression**, **asynchronous**, and has **different compression effects in different browsers**. Generally use this to precompress a image on the client side before uploading it.
 
-- [Website](https://fengyuanchen.github.io/compressorjs)
+- [Website](https://avlisodraude.github.io/compressme)
 
 ## Table of contents
 
@@ -60,14 +60,14 @@ The options for compressing. Check out the available [options](#options).
 #### Example
 
 ```html
-<input type="file" id="file" accept="image/*">
+<input type="file" id="file" accept="image/*" />
 ```
 
 ```js
-import axios from 'axios';
-import Compressor from 'compressorjs';
+import axios from "axios";
+import Compressor from "compressorjs";
 
-document.getElementById('file').addEventListener('change', (e) => {
+document.getElementById("file").addEventListener("change", (e) => {
   const file = e.target.files[0];
 
   if (!file) {
@@ -83,18 +83,17 @@ document.getElementById('file').addEventListener('change', (e) => {
       const formData = new FormData();
 
       // The third parameter is required for server
-      formData.append('file', result, result.name);
+      formData.append("file", result, result.name);
 
       // Send the compressed image file to server with XMLHttpRequest.
-      axios.post('/path/to/upload', formData).then(() => {
-        console.log('Upload success');
+      axios.post("/path/to/upload", formData).then(() => {
+        console.log("Upload success");
       });
     },
     error(err) {
       console.log(err.message);
     },
   });
-
 });
 ```
 
@@ -208,15 +207,15 @@ The quality of the output image. It must be a number between `0` and `1`. If thi
 
 **Examples**:
 
-| Quality | Input size | Output size | Compression ratio | Description |
-| --- | --- | --- | --- | --- |
-| 0 | 2.12 MB | 114.61 KB | 94.72% | - |
-| 0.2 | 2.12 MB | 349.57 KB | 83.90% | - |
-| 0.4 | 2.12 MB | 517.10 KB | 76.18% | - |
-| 0.6 | 2.12 MB | 694.99 KB | 67.99% | Recommend |
-| 0.8 | 2.12 MB | 1.14 MB | 46.41% | Recommend |
-| 1 | 2.12 MB | 2.12 MB | 0% | Not recommend |
-| NaN | 2.12 MB | 2.01 MB | 5.02% | - |
+| Quality | Input size | Output size | Compression ratio | Description   |
+| ------- | ---------- | ----------- | ----------------- | ------------- |
+| 0       | 2.12 MB    | 114.61 KB   | 94.72%            | -             |
+| 0.2     | 2.12 MB    | 349.57 KB   | 83.90%            | -             |
+| 0.4     | 2.12 MB    | 517.10 KB   | 76.18%            | -             |
+| 0.6     | 2.12 MB    | 694.99 KB   | 67.99%            | Recommend     |
+| 0.8     | 2.12 MB    | 1.14 MB     | 46.41%            | Recommend     |
+| 1       | 2.12 MB    | 2.12 MB     | 0%                | Not recommend |
+| NaN     | 2.12 MB    | 2.01 MB     | 5.02%             | -             |
 
 ### mimeType
 
@@ -250,10 +249,10 @@ Files whose file type is included in the `convertTypes` list, and whose file siz
 **Examples**:
 
 | convertSize | Input size (type) | Output size (type) | Compression ratio |
-| --- | --- | --- | --- |
-| 5 MB | 1.87 MB (PNG) | 1.87 MB (PNG) | 0% |
-| 5 MB | 5.66 MB (PNG) | 450.24 KB (JPEG) | 92.23% |
-| 5 MB | 9.74 MB (PNG) | 883.89 KB (JPEG) | 91.14% |
+| ----------- | ----------------- | ------------------ | ----------------- |
+| 5 MB        | 1.87 MB (PNG)     | 1.87 MB (PNG)      | 0%                |
+| 5 MB        | 5.66 MB (PNG)     | 450.24 KB (JPEG)   | 92.23%            |
+| 5 MB        | 9.74 MB (PNG)     | 883.89 KB (JPEG)   | 91.14%            |
 
 ### beforeDraw(context, canvas)
 
@@ -268,9 +267,9 @@ The hook function to execute before drawing the image into the canvas for compre
 ```js
 new Compressor(file, {
   beforeDraw(context, canvas) {
-    context.fillStyle = '#fff';
+    context.fillStyle = "#fff";
     context.fillRect(0, 0, canvas.width, canvas.height);
-    context.filter = 'grayscale(100%)';
+    context.filter = "grayscale(100%)";
   },
 });
 ```
@@ -288,9 +287,9 @@ The hook function to execute after drawing the image into the canvas for compres
 ```js
 new Compressor(file, {
   drew(context, canvas) {
-    context.fillStyle = '#fff';
-    context.font = '2rem serif';
-    context.fillText('watermark', 20, canvas.height - 20);
+    context.fillStyle = "#fff";
+    context.font = "2rem serif";
+    context.fillText("watermark", 20, canvas.height - 20);
   },
 });
 ```
@@ -360,6 +359,6 @@ Maintained under the [Semantic Versioning guidelines](https://semver.org/).
 
 ## License
 
-[MIT](https://opensource.org/licenses/MIT) © [Chen Fengyuan](https://chenfengyuan.com/)
+[MIT](https://opensource.org/licenses/MIT) © Eduardo Silva Navarrete
 
 [⬆ back to top](#table-of-contents)
