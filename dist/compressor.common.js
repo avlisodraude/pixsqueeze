@@ -5,7 +5,7 @@
  * Copyright 2018-present Chen Fengyuan
  * Released under the MIT license
  *
- * Date: 2026-06-08T11:16:32.259Z
+ * Date: 2026-06-08T11:19:46.007Z
  */
 'use strict';
 
@@ -767,10 +767,10 @@ class Compressor {
     const params = [];
 
     if (resizable) {
-      let srcX = 0;
-      let srcY = 0;
-      let srcWidth = naturalWidth;
-      let srcHeight = naturalHeight;
+      let srcX;
+      let srcY;
+      let srcWidth;
+      let srcHeight;
 
       ({ width: srcWidth, height: srcHeight } = getAdjustedSizes({
         aspectRatio,
@@ -799,8 +799,6 @@ class Compressor {
       options.mimeType = file.type;
     }
 
-    let fillStyle = 'transparent';
-
     // Converts PNG files over the `convertSize` to JPEGs.
     if (file.size > options.convertSize && options.convertTypes.includes(options.mimeType)) {
       options.mimeType = 'image/jpeg';
@@ -808,12 +806,8 @@ class Compressor {
 
     const isJPEGImage = options.mimeType === 'image/jpeg';
 
-    if (isJPEGImage) {
-      fillStyle = '#fff';
-    }
-
     // Override the default fill color (#000, black)
-    context.fillStyle = fillStyle;
+    context.fillStyle = isJPEGImage ? '#fff' : 'transparent';
     context.fillRect(0, 0, width, height);
 
     if (options.beforeDraw) {
