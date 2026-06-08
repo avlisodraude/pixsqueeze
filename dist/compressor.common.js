@@ -5,7 +5,7 @@
  * Copyright 2018-present Chen Fengyuan
  * Released under the MIT license
  *
- * Date: 2026-06-08T11:26:36.816Z
+ * Date: 2026-06-08T11:35:06.121Z
  */
 'use strict';
 
@@ -314,11 +314,9 @@ function resetAndGetOrientation(arrayBuffer) {
 
     if (ifdStart) {
       const length = dataView.getUint16(ifdStart, littleEndian);
-      let offset;
-      let i;
 
-      for (i = 0; i < length; i += 1) {
-        offset = ifdStart + (i * 12) + 2;
+      for (let i = 0; i < length; i += 1) {
+        let offset = ifdStart + (i * 12) + 2;
 
         if (dataView.getUint16(offset, littleEndian) === 0x0112 /* Orientation */) {
           // 8 is the offset of the current tag's value
@@ -431,7 +429,7 @@ function getAdjustedSizes(
   if (isValidWidth && isValidHeight) {
     const adjustedWidth = height * aspectRatio;
 
-    if (((type === 'contain' || type === 'none') && adjustedWidth > width) || (type === 'cover' && adjustedWidth < width)) {
+    if ((['contain', 'none'].includes(type) && adjustedWidth > width) || (type === 'cover' && adjustedWidth < width)) {
       height = width / aspectRatio;
     } else {
       width = height * aspectRatio;
@@ -558,9 +556,8 @@ function dataURLtoBlob(dataURL) {
   return new Blob([bytes], { type: mime });
 }
 
-const { FileReader, URL } = WINDOW;
+const { FileReader, URL, Compressor: AnotherCompressor } = WINDOW;
 const REGEXP_EXTENSION = /\.\w+$/;
-const AnotherCompressor = WINDOW.Compressor;
 
 /**
  * Creates a new image compressor.

@@ -16,9 +16,8 @@ import {
   resetAndGetOrientation,
 } from './utilities';
 
-const { FileReader, URL } = WINDOW;
+const { FileReader, URL, Compressor: AnotherCompressor } = WINDOW;
 const REGEXP_EXTENSION = /\.\w+$/;
-const AnotherCompressor = WINDOW.Compressor;
 
 /**
  * Creates a new image compressor.

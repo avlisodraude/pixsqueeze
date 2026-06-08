@@ -157,11 +157,9 @@ export function resetAndGetOrientation(arrayBuffer) {
 
     if (ifdStart) {
       const length = dataView.getUint16(ifdStart, littleEndian);
-      let offset;
-      let i;
 
-      for (i = 0; i < length; i += 1) {
-        offset = ifdStart + (i * 12) + 2;
+      for (let i = 0; i < length; i += 1) {
+        let offset = ifdStart + (i * 12) + 2;
 
         if (dataView.getUint16(offset, littleEndian) === 0x0112 /* Orientation */) {
           // 8 is the offset of the current tag's value
@@ -276,7 +274,7 @@ export function getAdjustedSizes(
   if (isValidWidth && isValidHeight) {
     const adjustedWidth = height * aspectRatio;
 
-    if (((type === 'contain' || type === 'none') && adjustedWidth > width) || (type === 'cover' && adjustedWidth < width)) {
+    if ((['contain', 'none'].includes(type) && adjustedWidth > width) || (type === 'cover' && adjustedWidth < width)) {
       height = width / aspectRatio;
     } else {
       width = height * aspectRatio;
