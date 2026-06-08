@@ -66,11 +66,6 @@ export default class Compressor {
       return;
     }
 
-    if (!ArrayBuffer) {
-      options.checkOrientation = false;
-      options.retainExif = false;
-    }
-
     const isJPEGImage = mimeType === 'image/jpeg';
     const checkOrientation = isJPEGImage && options.checkOrientation;
     const retainExif = isJPEGImage && options.retainExif;
@@ -272,7 +267,7 @@ export default class Compressor {
     let fillStyle = 'transparent';
 
     // Converts PNG files over the `convertSize` to JPEGs.
-    if (file.size > options.convertSize && options.convertTypes.indexOf(options.mimeType) >= 0) {
+    if (file.size > options.convertSize && options.convertTypes.includes(options.mimeType)) {
       options.mimeType = 'image/jpeg';
     }
 

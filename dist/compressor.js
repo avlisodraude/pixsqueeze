@@ -5,7 +5,7 @@
  * Copyright 2018-present Chen Fengyuan
  * Released under the MIT license
  *
- * Date: 2026-06-08T09:45:15.124Z
+ * Date: 2026-06-08T09:48:42.642Z
  */
 (function (global, factory) {
   typeof exports === 'object' && typeof module !== 'undefined' ? module.exports = factory() :
@@ -195,26 +195,6 @@
   const { fromCharCode } = String;
 
   /**
-   * Get string from char code in data view.
-   * @param {DataView} dataView - The data view for read.
-   * @param {number} start - The start index.
-   * @param {number} length - The read length.
-   * @returns {string} The read result.
-   */
-  function getStringFromCharCode(dataView, start, length) {
-    let str = '';
-    let i;
-
-    length += start;
-
-    for (i = start; i < length; i += 1) {
-      str += fromCharCode(dataView.getUint8(i));
-    }
-
-    return str;
-  }
-
-  /**
    * Check if `canvas.getContext('2d').getImageData` is available,
    * FireFox randomizes the output of that function in `privacy.resistFingerprinting` mode (#137)
    * @link https://github.com/nodeca/pica/blob/master/lib/utils.js
@@ -323,7 +303,7 @@
         const exifIDCode = app1Start + 4;
         const tiffOffset = app1Start + 10;
 
-        if (getStringFromCharCode(dataView, exifIDCode, 4) === 'Exif') {
+        if (new TextDecoder().decode(new Uint8Array(dataView.buffer, exifIDCode, 4)) === 'Exif') {
           const endianness = dataView.getUint16(tiffOffset);
 
           littleEndian = endianness === 0x4949;
@@ -595,7 +575,7 @@
     return new Blob([bytes], { type: mime });
   }
 
-  const { ArrayBuffer, FileReader } = WINDOW;
+  const { FileReader } = WINDOW;
   const URL = WINDOW.URL;
   const REGEXP_EXTENSION = /\.\w+$/;
   const AnotherCompressor = WINDOW.Compressor;
@@ -641,11 +621,6 @@
       if (!URL || !FileReader) {
         this.fail(new Error('The current browser does not support image compression.'));
         return;
-      }
-
-      if (!ArrayBuffer) {
-        options.checkOrientation = false;
-        options.retainExif = false;
       }
 
       const isJPEGImage = mimeType === 'image/jpeg';
@@ -849,7 +824,7 @@
       let fillStyle = 'transparent';
 
       // Converts PNG files over the `convertSize` to JPEGs.
-      if (file.size > options.convertSize && options.convertTypes.indexOf(options.mimeType) >= 0) {
+      if (file.size > options.convertSize && options.convertTypes.includes(options.mimeType)) {
         options.mimeType = 'image/jpeg';
       }
 

@@ -36,26 +36,6 @@ export function imageTypeToExtension(value) {
 const { fromCharCode } = String;
 
 /**
- * Get string from char code in data view.
- * @param {DataView} dataView - The data view for read.
- * @param {number} start - The start index.
- * @param {number} length - The read length.
- * @returns {string} The read result.
- */
-export function getStringFromCharCode(dataView, start, length) {
-  let str = '';
-  let i;
-
-  length += start;
-
-  for (i = start; i < length; i += 1) {
-    str += fromCharCode(dataView.getUint8(i));
-  }
-
-  return str;
-}
-
-/**
  * Check if `canvas.getContext('2d').getImageData` is available,
  * FireFox randomizes the output of that function in `privacy.resistFingerprinting` mode (#137)
  * @link https://github.com/nodeca/pica/blob/master/lib/utils.js
@@ -164,7 +144,7 @@ export function resetAndGetOrientation(arrayBuffer) {
       const exifIDCode = app1Start + 4;
       const tiffOffset = app1Start + 10;
 
-      if (getStringFromCharCode(dataView, exifIDCode, 4) === 'Exif') {
+      if (new TextDecoder().decode(new Uint8Array(dataView.buffer, exifIDCode, 4)) === 'Exif') {
         const endianness = dataView.getUint16(tiffOffset);
 
         littleEndian = endianness === 0x4949;
