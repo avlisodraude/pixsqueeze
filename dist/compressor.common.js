@@ -5,7 +5,7 @@
  * Copyright 2018-present Chen Fengyuan
  * Released under the MIT license
  *
- * Date: 2026-06-08T11:44:46.467Z
+ * Date: 2026-06-08T11:47:18.190Z
  */
 'use strict';
 
@@ -746,10 +746,6 @@ class Compressor {
     width = Math.floor(normalizeDecimalNumber(Math.min(Math.max(width, minWidth), maxWidth)));
     height = Math.floor(normalizeDecimalNumber(Math.min(Math.max(height, minHeight), maxHeight)));
 
-    const destX = -width / 2;
-    const destY = -height / 2;
-    const destWidth = width;
-    const destHeight = height;
     const params = [];
 
     if (resizable) {
@@ -767,7 +763,7 @@ class Compressor {
       params.push(srcX, srcY, srcWidth, srcHeight);
     }
 
-    params.push(destX, destY, destWidth, destHeight);
+    params.push(-width / 2, -height / 2, width, height);
 
     if (is90DegreesRotated) {
       [width, height] = [height, width];

@@ -208,10 +208,6 @@ export default class Compressor {
     width = Math.floor(normalizeDecimalNumber(Math.min(Math.max(width, minWidth), maxWidth)));
     height = Math.floor(normalizeDecimalNumber(Math.min(Math.max(height, minHeight), maxHeight)));
 
-    const destX = -width / 2;
-    const destY = -height / 2;
-    const destWidth = width;
-    const destHeight = height;
     const params = [];
 
     if (resizable) {
@@ -229,7 +225,7 @@ export default class Compressor {
       params.push(srcX, srcY, srcWidth, srcHeight);
     }
 
-    params.push(destX, destY, destWidth, destHeight);
+    params.push(-width / 2, -height / 2, width, height);
 
     if (is90DegreesRotated) {
       [width, height] = [height, width];
