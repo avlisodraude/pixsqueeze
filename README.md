@@ -8,8 +8,18 @@
 
 ## Table of contents
 
+- [Quick start](#quick-start)
 - [Main Files](#main-files)
 - [Getting started](#getting-started)
+- [Recipes](#recipes)
+  - [Compress an image before upload](#compress-an-image-before-upload)
+  - [Resize while compressing](#resize-while-compressing)
+  - [Convert to WebP or JPEG](#convert-to-webp-or-jpeg)
+  - [Compress an iPhone HEIC photo](#compress-an-iphone-heic-photo)
+  - [Compress a TIFF or camera RAW file](#compress-a-tiff-or-camera-raw-file)
+  - [Add a watermark while compressing](#add-a-watermark-while-compressing)
+  - [Convert to grayscale while compressing](#convert-to-grayscale-while-compressing)
+  - [Cancel an in-progress compression](#cancel-an-in-progress-compression)
 - [Demo server](#demo-server)
 - [Server-side conversion API](#server-side-conversion-api)
 - [Options](#options)
@@ -19,6 +29,30 @@
 - [Contributing](#contributing)
 - [Versioning](#versioning)
 - [License](#license)
+
+## Quick start
+
+Install it:
+
+```shell
+npm install pixsqueeze
+```
+
+Compress a file the user picked, in three lines:
+
+```js
+import PixSqueeze from "pixsqueeze";
+
+new PixSqueeze(file, {
+  quality: 0.6,
+  success: (result) => uploadToServer(result), // a `File`/`Blob`, ready to send
+  error: (err) => console.error(err.message),
+});
+```
+
+That's the whole API surface for the common case — pick a quality between `0` (smallest, lowest quality) and `1` (largest, original quality), get a compressed file back in `success`. Everything below shows how to handle more specific scenarios: resizing, converting formats, handling iPhone photos (HEIC), scans (TIFF), camera RAW files, watermarks, and more.
+
+[⬆ back to top](#table-of-contents)
 
 ## Main Files
 
@@ -94,6 +128,186 @@ document.getElementById("file").addEventListener("change", (e) => {
     },
   });
 });
+```
+
+[⬆ back to top](#table-of-contents)
+
+## Recipes
+
+Short, focused examples for the situations you'll run into most. Each one is meant to be copied and adapted directly.
+
+### Compress an image before upload
+
+The most common use case — shrink a file the user picked before sending it to your server.
+
+```js
+import PixSqueeze from "pixsqueeze";
+
+function compressAndUpload(file) {
+  new PixSqueeze(file, {
+    quality: 0.6,
+    success(result) {
+      const formData = new FormData();
+
+      formData.append("file", result, result.name);
+
+      fetch("/upload", { method: "POST", body: formData });
+    },
+    error(err) {
+      console.error("Compression failed:", err.message);
+    },
+  });
+}
+```
+
+### Resize while compressing
+
+Cap the output dimensions — useful for thumbnails, avatars, or fitting images into a known layout. Use `maxWidth`/`maxHeight` to set a ceiling, or `width`/`height` with `resize` to fit/crop into an exact box.
+
+```js
+// Cap the longest side at 1280px, keep the aspect ratio
+new PixSqueeze(file, {
+  maxWidth: 1280,
+  maxHeight: 1280,
+  quality: 0.7,
+  success: (result) => console.log(result),
+});
+
+// Force an exact 400x400 square, cropping to fill (like a profile picture)
+new PixSqueeze(file, {
+  width: 400,
+  height: 400,
+  resize: "cover",
+  quality: 0.8,
+  success: (result) => console.log(result),
+});
+```
+
+### Convert to WebP or JPEG
+
+Force the output format regardless of the input — handy for standardizing what your server stores.
+
+```js
+new PixSqueeze(file, {
+  mimeType: "image/webp", // or "image/jpeg", "image/png", "auto"
+  quality: 0.75,
+  success: (result) => console.log(result.type), // "image/webp"
+});
+```
+
+> **Note:** Safari cannot encode to WebP via canvas. If you need guaranteed WebP output across all browsers, convert on the server instead.
+
+### Compress an iPhone HEIC photo
+
+Browsers can't decode HEIC/HEIF — the format iPhones save photos in by default. PixSqueeze ships a small server (in `server/`) that converts HEIC → JPEG first, then the client-side compressor takes over. The pattern: detect the format, send to the server if needed, then compress as usual.
+
+```js
+import PixSqueeze from "pixsqueeze";
+
+async function isHeic(file) {
+  // A simple check — see `src/heic.js` for the full magic-byte detection used internally
+  return file.type === "image/heic" || file.type === "image/heif" || /\.heic$|\.heif$/i.test(file.name);
+}
+
+async function convertHeicOnServer(file) {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const response = await fetch("/api/convert/heic", { method: "POST", body: formData });
+
+  if (!response.ok) {
+    throw new Error("HEIC conversion failed");
+  }
+
+  const blob = await response.blob();
+
+  return new File([blob], file.name.replace(/\.\w+$/, ".jpg"), { type: "image/jpeg" });
+}
+
+async function handleFile(file) {
+  const resolvedFile = (await isHeic(file)) ? await convertHeicOnServer(file) : file;
+
+  new PixSqueeze(resolvedFile, {
+    quality: 0.6,
+    success: (result) => console.log("Ready to upload:", result),
+    error: (err) => console.error(err.message),
+  });
+}
+```
+
+> Run `npm run server` to start the bundled conversion server locally — see [Server-side conversion API](#server-side-conversion-api) for the full endpoint reference and ready-to-use detection helpers.
+
+### Compress a TIFF or camera RAW file
+
+Same idea as HEIC — these formats aren't readable by `<canvas>`, so they're routed through the server's `/api/convert/tiff` or `/api/convert/raw` endpoints first.
+
+```js
+async function convertOnServer(file, endpoint) {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const response = await fetch(endpoint, { method: "POST", body: formData });
+
+  if (!response.ok) {
+    throw new Error(`Conversion failed (${response.status})`);
+  }
+
+  const blob = await response.blob();
+
+  return new File([blob], file.name.replace(/\.\w+$/, ".jpg"), { type: "image/jpeg" });
+}
+
+// Scanned document
+const jpegFromTiff = await convertOnServer(tiffFile, "/api/convert/tiff");
+new PixSqueeze(jpegFromTiff, { quality: 0.7, success: (r) => console.log(r) });
+
+// Camera RAW (.cr2, .nef, .arw, .dng, etc. — see the full list in the API docs)
+const jpegFromRaw = await convertOnServer(rawFile, "/api/convert/raw");
+new PixSqueeze(jpegFromRaw, { quality: 0.7, success: (r) => console.log(r) });
+```
+
+### Add a watermark while compressing
+
+Use the `drew` hook to draw on top of the image after it's been placed on the canvas, before the final compressed output is produced.
+
+```js
+new PixSqueeze(file, {
+  quality: 0.8,
+  drew(context, canvas) {
+    context.font = "bold 2rem sans-serif";
+    context.fillStyle = "rgba(255, 255, 255, 0.6)";
+    context.fillText("© Your Brand", 20, canvas.height - 20);
+  },
+  success: (result) => console.log(result),
+});
+```
+
+### Convert to grayscale while compressing
+
+Use the `beforeDraw` hook to apply a canvas filter before the image is drawn.
+
+```js
+new PixSqueeze(file, {
+  quality: 0.8,
+  beforeDraw(context, canvas) {
+    context.filter = "grayscale(100%)";
+  },
+  success: (result) => console.log(result),
+});
+```
+
+### Cancel an in-progress compression
+
+Useful when the user picks a new file before the previous compression finishes, or navigates away.
+
+```js
+const job = new PixSqueeze(file, {
+  success: (result) => console.log(result),
+  error: (err) => console.log("Aborted or failed:", err.message),
+});
+
+// Later, e.g. on a "cancel" button click or when a newer file is selected:
+job.abort();
 ```
 
 [⬆ back to top](#table-of-contents)
