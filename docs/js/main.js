@@ -130,8 +130,6 @@ window.addEventListener('DOMContentLoaded', function () {
           convertTypes: 'image/png',
           convertSize: 5000000,
           success: function (result) {
-            console.log('Output: ', result);
-
             if (URL) {
               vm.outputURL = URL.createObjectURL(result);
             }
@@ -173,24 +171,19 @@ window.addEventListener('DOMContentLoaded', function () {
           return;
         }
 
-        console.log('Input: ', file);
-
         var vm = this;
 
         isHeicFile(file).then(function (heic) {
           if (!heic) return file;
-          console.log('HEIC detected — converting on server…');
           return convertHeicOnServer(file);
         }).then(function (resolvedFile) {
           return isTiffFile(resolvedFile).then(function (tiff) {
             if (!tiff) return resolvedFile;
-            console.log('TIFF detected — converting on server…');
             return convertTiffOnServer(resolvedFile);
           });
         }).then(function (resolvedFile) {
           return isRawFile(resolvedFile).then(function (raw) {
             if (!raw) return resolvedFile;
-            console.log('Camera RAW detected — converting on server…');
             return convertRawOnServer(resolvedFile);
           });
         }).then(function (resolvedFile) {

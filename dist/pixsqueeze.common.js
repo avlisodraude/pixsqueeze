@@ -5,7 +5,7 @@
  * Copyright 2018-present Eduardo Silva Navarrete
  * Released under the MIT license
  *
- * Date: 2026-06-08T19:44:49.431Z
+ * Date: 2026-06-08T19:48:37.837Z
  */
 'use strict';
 

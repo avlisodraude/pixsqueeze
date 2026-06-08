@@ -82,7 +82,7 @@
       </div>
     </div>
   </main>
-  <script src="../js/compressor.js"></script>
+  <script src="../js/pixsqueeze.js"></script>
   <script>
     window.addEventListener('DOMContentLoaded', function () {
       var PixSqueeze = window.PixSqueeze;
@@ -98,7 +98,6 @@
             error: reject,
           });
         }).then((result) => {
-          console.log('Compress success');
           var newImage = new Image();
 
           newImage.src = URL.createObjectURL(result);
@@ -106,10 +105,7 @@
           output.innerHTML = '';
           output.appendChild(newImage);
         }).catch((err) => {
-          console.log('Compress error');
           window.alert(err.message);
-        }).finally(() => {
-          console.log('Compress complete');
         });
       };
 
