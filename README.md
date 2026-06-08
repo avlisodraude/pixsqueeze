@@ -1,8 +1,8 @@
-# Compressor.js
+# Compressme
 
-[![Coverage Status](https://img.shields.io/codecov/c/github/avlisodraude/compressme.svg)](https://codecov.io/gh/avlisodraude/compressme) [![Downloads](https://img.shields.io/npm/dm/compressorjs.svg)](https://www.npmjs.com/package/compressorjs) [![Version](https://img.shields.io/npm/v/compressorjs.svg)](https://www.npmjs.com/package/compressorjs) [![Gzip Size](https://img.shields.io/bundlephobia/minzip/compressorjs.svg)](https://unpkg.com/compressorjs/dist/compressor.common.js)
+[![Coverage Status](https://img.shields.io/codecov/c/github/avlisodraude/compressme.svg)](https://codecov.io/gh/avlisodraude/compressme) [![Downloads](https://img.shields.io/npm/dm/compressme.svg)](https://www.npmjs.com/package/compressme) [![Version](https://img.shields.io/npm/v/compressme.svg)](https://www.npmjs.com/package/compressme) [![Gzip Size](https://img.shields.io/bundlephobia/minzip/compressme.svg)](https://unpkg.com/compressme/dist/compressme.common.js)
 
-> JavaScript image compressor. Uses the Browser's native [HTMLCanvasElement.toBlob()](https://developer.mozilla.org/en-US/docs/Web/API/HTMLCanvasElement/toBlob) method to do the compression work, which means it is **lossy compression**, **asynchronous**, and has **different compression effects in different browsers**. Generally use this to precompress a image on the client side before uploading it.
+> JavaScript image compressor with server-side conversion for HEIC, TIFF, and camera RAW formats. The client-side compression uses the browser's native [HTMLCanvasElement.toBlob()](https://developer.mozilla.org/en-US/docs/Web/API/HTMLCanvasElement/toBlob) method — **lossy**, **asynchronous**, and behaviour varies across browsers. Precompress images on the client side before uploading, with automatic server-assisted pre-conversion for formats browsers cannot natively read.
 
 - [Website](https://avlisodraude.github.io/compressme)
 
@@ -10,6 +10,8 @@
 
 - [Main Files](#main-files)
 - [Getting started](#getting-started)
+- [Demo server](#demo-server)
+- [Server-side conversion API](#server-side-conversion-api)
 - [Options](#options)
 - [Methods](#methods)
 - [No conflict](#no-conflict)
@@ -22,10 +24,10 @@
 
 ```text
 dist/
-├── compressor.js        (UMD)
-├── compressor.min.js    (UMD, compressed)
-├── compressor.common.js (CommonJS, default)
-└── compressor.esm.js    (ES Module)
+├── compressme.js        (UMD)
+├── compressme.min.js    (UMD, compressed)
+├── compressme.common.js (CommonJS, default)
+└── compressme.esm.js    (ES Module)
 ```
 
 ## Getting started
@@ -33,7 +35,7 @@ dist/
 ### Install
 
 ```shell
-npm install compressorjs
+npm install compressme
 ```
 
 ### Usage
@@ -64,8 +66,7 @@ The options for compressing. Check out the available [options](#options).
 ```
 
 ```js
-import axios from "axios";
-import Compressor from "compressorjs";
+import Compressor from "compressme";
 
 document.getElementById("file").addEventListener("change", (e) => {
   const file = e.target.files[0];
@@ -86,15 +87,96 @@ document.getElementById("file").addEventListener("change", (e) => {
       formData.append("file", result, result.name);
 
       // Send the compressed image file to server with XMLHttpRequest.
-      axios.post("/path/to/upload", formData).then(() => {
-        console.log("Upload success");
-      });
+      fetch("/path/to/upload", { method: "POST", body: formData });
     },
     error(err) {
       console.log(err.message);
     },
   });
 });
+```
+
+[⬆ back to top](#table-of-contents)
+
+## Demo server
+
+An Express development server is bundled under `server/`. It serves the `docs/` demo page and exposes the server-side conversion API endpoints.
+
+### Start the server
+
+```shell
+npm run server
+```
+
+Opens at `http://localhost:3000` by default. Set the `PORT` environment variable to override.
+
+### Server dependencies
+
+| Package        | Purpose                                               |
+| -------------- | ----------------------------------------------------- |
+| `express`      | HTTP server                                           |
+| `multer`       | Multipart file upload handling (200 MB limit)         |
+| `sharp`        | TIFF and RAW → JPEG conversion via libvips            |
+| `heic-convert` | HEIC/HEIF → JPEG conversion (runs in a worker thread) |
+| `compression`  | Gzip/Brotli for static assets and JSON responses      |
+
+[⬆ back to top](#table-of-contents)
+
+## Server-side conversion API
+
+Browsers cannot natively decode HEIC, TIFF, or camera RAW files. The demo app sends these formats to the server, converts them to JPEG, and then feeds the result to the client-side compressor.
+
+All endpoints accept a `multipart/form-data` POST with a single field named `file` and respond with:
+
+- **`200`** — `image/jpeg` binary body + `X-Original-Name` header with the renamed filename
+- **`400`** — No file uploaded or malformed request
+- **`413`** — File exceeds the 200 MB upload limit
+- **`415`** — File type not accepted by this endpoint
+- **`422`** — Conversion failed (corrupt or unsupported variant)
+
+### `POST /api/convert/heic`
+
+Converts a HEIC/HEIF image to JPEG at quality 95. Detection is done by MIME type **and** ISO Base Media File Format magic bytes, so iOS files with an empty MIME type are handled correctly. Conversion runs in a dedicated worker thread to avoid blocking the Node.js event loop.
+
+```shell
+curl -X POST http://localhost:3000/api/convert/heic \
+  -F "file=@photo.heic" \
+  --output photo.jpg
+```
+
+### `POST /api/convert/tiff`
+
+Converts a TIFF image (including multi-page TIFFs) to JPEG at quality 95. Detection uses MIME type, `.tiff`/`.tif` file extension, and little/big-endian magic bytes.
+
+```shell
+curl -X POST http://localhost:3000/api/convert/tiff \
+  -F "file=@scan.tiff" \
+  --output scan.jpg
+```
+
+### `POST /api/convert/raw`
+
+Converts camera RAW files to JPEG at quality 95. Automatically applies embedded orientation metadata. Supported formats:
+
+| Format    | Extensions                                     |
+| --------- | ---------------------------------------------- |
+| Adobe DNG | `.dng`                                         |
+| Canon     | `.cr2`, `.cr3`                                 |
+| Nikon     | `.nef`, `.nrw`                                 |
+| Sony      | `.arw`                                         |
+| Fujifilm  | `.raf`                                         |
+| Panasonic | `.rw2`                                         |
+| Pentax    | `.pef`                                         |
+| Olympus   | `.orf`                                         |
+| Samsung   | `.srw`                                         |
+| Other     | `.3fr`, `.dcr`, `.kdc`, `.mrw`, `.rwl`, `.x3f` |
+
+> **Note:** RAF and RW2 conversion requires the `sharp` binary to be built with LibRaw support. If your installed binary does not include it, the endpoint returns a `422` with a clear error message.
+
+```shell
+curl -X POST http://localhost:3000/api/convert/raw \
+  -F "file=@DSC_0001.NEF" \
+  --output DSC_0001.jpg
 ```
 
 [⬆ back to top](#table-of-contents)
@@ -347,7 +429,6 @@ If you have to use another compressor with the same namespace, just call the `Co
 - Safari (latest)
 - Opera (latest)
 - Edge (latest)
-- Internet Explorer 10+
 
 ## Contributing
 
