@@ -163,7 +163,7 @@ export default class Compressor {
     const canvas = document.createElement('canvas');
     const context = canvas.getContext('2d');
     const is90DegreesRotated = Math.abs(rotate) % 180 === 90;
-    const resizable = (options.resize === 'contain' || options.resize === 'cover') && isPositiveNumber(options.width) && isPositiveNumber(options.height);
+    const resizable = ['contain', 'cover'].includes(options.resize) && isPositiveNumber(options.width) && isPositiveNumber(options.height);
     let maxWidth = Math.max(options.maxWidth, 0) || Infinity;
     let maxHeight = Math.max(options.maxHeight, 0) || Infinity;
     let minWidth = Math.max(options.minWidth, 0) || 0;

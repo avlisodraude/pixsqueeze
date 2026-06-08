@@ -22,13 +22,9 @@ export function isImageType(value) {
  * @returns {boolean} Returns the image extension.
  */
 export function imageTypeToExtension(value) {
-  let extension = isImageType(value) ? value.slice(6) : '';
+  const ext = isImageType(value) ? value.slice(6) : '';
 
-  if (extension === 'jpeg') {
-    extension = 'jpg';
-  }
-
-  return `.${extension}`;
+  return `.${ext === 'jpeg' ? 'jpg' : ext}`;
 }
 
 const { fromCharCode } = String;

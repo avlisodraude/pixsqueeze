@@ -5,7 +5,7 @@
  * Copyright 2018-present Chen Fengyuan
  * Released under the MIT license
  *
- * Date: 2026-06-08T11:24:59.055Z
+ * Date: 2026-06-08T11:26:36.816Z
  */
 var DEFAULTS = {
   /**
@@ -177,13 +177,9 @@ function isImageType(value) {
  * @returns {boolean} Returns the image extension.
  */
 function imageTypeToExtension(value) {
-  let extension = isImageType(value) ? value.slice(6) : '';
+  const ext = isImageType(value) ? value.slice(6) : '';
 
-  if (extension === 'jpeg') {
-    extension = 'jpg';
-  }
-
-  return `.${extension}`;
+  return `.${ext === 'jpeg' ? 'jpg' : ext}`;
 }
 
 const { fromCharCode } = String;
@@ -707,7 +703,7 @@ class Compressor {
     const canvas = document.createElement('canvas');
     const context = canvas.getContext('2d');
     const is90DegreesRotated = Math.abs(rotate) % 180 === 90;
-    const resizable = (options.resize === 'contain' || options.resize === 'cover') && isPositiveNumber(options.width) && isPositiveNumber(options.height);
+    const resizable = ['contain', 'cover'].includes(options.resize) && isPositiveNumber(options.width) && isPositiveNumber(options.height);
     let maxWidth = Math.max(options.maxWidth, 0) || Infinity;
     let maxHeight = Math.max(options.maxHeight, 0) || Infinity;
     let minWidth = Math.max(options.minWidth, 0) || 0;
