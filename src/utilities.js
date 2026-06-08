@@ -335,9 +335,7 @@ export function getExif(arrayBuffer) {
   // (the return type expected by insertExif).
   if (exifSegments.length === 0) return [];
 
-  let totalLength = 0;
-
-  for (const seg of exifSegments) totalLength += seg.length;
+  const totalLength = exifSegments.reduce((sum, seg) => sum + seg.length, 0);
 
   const result = new Uint8Array(totalLength);
   let pos = 0;

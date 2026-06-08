@@ -5,7 +5,7 @@
  * Copyright 2018-present Chen Fengyuan
  * Released under the MIT license
  *
- * Date: 2026-06-08T11:43:09.845Z
+ * Date: 2026-06-08T11:44:46.467Z
  */
 var DEFAULTS = {
   /**
@@ -488,9 +488,7 @@ function getExif(arrayBuffer) {
   // (the return type expected by insertExif).
   if (exifSegments.length === 0) return [];
 
-  let totalLength = 0;
-
-  for (const seg of exifSegments) totalLength += seg.length;
+  const totalLength = exifSegments.reduce((sum, seg) => sum + seg.length, 0);
 
   const result = new Uint8Array(totalLength);
   let pos = 0;
@@ -869,15 +867,9 @@ class Compressor {
       ) {
         result = file;
       } else {
-        let fileName = file.name;
-
-        // Convert the extension to match its type
-        if (fileName && result.type !== file.type) {
-          fileName = fileName.replace(
-            REGEXP_EXTENSION,
-            imageTypeToExtension(result.type),
-          );
-        }
+        const fileName = (file.name && result.type !== file.type)
+          ? file.name.replace(REGEXP_EXTENSION, imageTypeToExtension(result.type))
+          : file.name;
 
         result = new File([result], fileName, {
           type: result.type,

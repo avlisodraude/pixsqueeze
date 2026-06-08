@@ -331,15 +331,9 @@ export default class Compressor {
       ) {
         result = file;
       } else {
-        let fileName = file.name;
-
-        // Convert the extension to match its type
-        if (fileName && result.type !== file.type) {
-          fileName = fileName.replace(
-            REGEXP_EXTENSION,
-            imageTypeToExtension(result.type),
-          );
-        }
+        const fileName = (file.name && result.type !== file.type)
+          ? file.name.replace(REGEXP_EXTENSION, imageTypeToExtension(result.type))
+          : file.name;
 
         result = new File([result], fileName, {
           type: result.type,
