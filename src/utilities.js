@@ -7,15 +7,13 @@ import { WINDOW } from './constants';
  */
 export const isPositiveNumber = (value) => value > 0 && value < Infinity;
 
-const { slice } = Array.prototype;
-
 /**
  * Convert array-like or iterable object to an array.
  * @param {*} value - The value to convert.
  * @returns {Array} Returns a new array.
  */
 export function toArray(value) {
-  return Array.from ? Array.from(value) : slice.call(value);
+  return Array.from(value);
 }
 
 const REGEXP_IMAGE_TYPE = /^image\/.+$/;
@@ -35,7 +33,7 @@ export function isImageType(value) {
  * @returns {boolean} Returns the image extension.
  */
 export function imageTypeToExtension(value) {
-  let extension = isImageType(value) ? value.substr(6) : '';
+  let extension = isImageType(value) ? value.slice(6) : '';
 
   if (extension === 'jpeg') {
     extension = 'jpg';

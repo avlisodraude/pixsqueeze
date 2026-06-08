@@ -5,7 +5,7 @@
  * Copyright 2018-present Chen Fengyuan
  * Released under the MIT license
  *
- * Date: 2026-06-08T09:14:43.573Z
+ * Date: 2026-06-08T09:19:06.020Z
  */
 (function (global, factory) {
   typeof exports === 'object' && typeof module !== 'undefined' ? module.exports = factory() :
@@ -166,15 +166,13 @@
    */
   const isPositiveNumber = (value) => value > 0 && value < Infinity;
 
-  const { slice } = Array.prototype;
-
   /**
    * Convert array-like or iterable object to an array.
    * @param {*} value - The value to convert.
    * @returns {Array} Returns a new array.
    */
   function toArray(value) {
-    return Array.from ? Array.from(value) : slice.call(value);
+    return Array.from(value);
   }
 
   const REGEXP_IMAGE_TYPE = /^image\/.+$/;
@@ -194,7 +192,7 @@
    * @returns {boolean} Returns the image extension.
    */
   function imageTypeToExtension(value) {
-    let extension = isImageType(value) ? value.substr(6) : '';
+    let extension = isImageType(value) ? value.slice(6) : '';
 
     if (extension === 'jpeg') {
       extension = 'jpg';
