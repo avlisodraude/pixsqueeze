@@ -5,7 +5,7 @@
  * Copyright 2018-present Chen Fengyuan
  * Released under the MIT license
  *
- * Date: 2026-06-08T11:01:43.653Z
+ * Date: 2026-06-08T11:16:32.259Z
  */
 (function (global, factory) {
   typeof exports === 'object' && typeof module !== 'undefined' ? module.exports = factory() :
@@ -649,14 +649,10 @@
             this.exif = getExif(result);
           }
 
-          if (checkOrientation || retainExif) {
-            if (orientation > 1) {
-              data.url = arrayBufferToDataURL(result, mimeType);
-            } else {
-              data.url = URL.createObjectURL(file);
-            }
+          if (orientation > 1) {
+            data.url = arrayBufferToDataURL(result, mimeType);
           } else {
-            data.url = result;
+            data.url = URL.createObjectURL(file);
           }
 
           this.load(data);
@@ -671,11 +667,7 @@
           this.reader = null;
         };
 
-        if (checkOrientation || retainExif) {
-          reader.readAsArrayBuffer(file);
-        } else {
-          reader.readAsDataURL(file);
-        }
+        reader.readAsArrayBuffer(file);
       }
     }
 
@@ -884,7 +876,7 @@
     }) {
       const { file, image, options } = this;
 
-      if (URL && image.src.startsWith('blob:')) {
+      if (image.src.startsWith('blob:')) {
         URL.revokeObjectURL(image.src);
       }
 
