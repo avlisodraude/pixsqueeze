@@ -404,10 +404,12 @@ Need to compress hundreds or thousands of images server-side — without a brows
 
 | Plan       | Images / month | Price      |
 | ---------- | -------------- | ---------- |
-| Free       | 100            | €0         |
-| Starter    | 2,000          | €19 / mo   |
-| Pro        | 20,000         | €49 / mo   |
-| Business   | Unlimited      | €99 / mo   |
+| Free       | 100            | $0         |
+| Starter    | 2,000          | $9 / mo    |
+| Pro        | 20,000         | $29 / mo   |
+| Business   | Unlimited      | $99 / mo   |
+
+Full documentation and dashboard: [alosha.dev](https://alosha.dev) · [API docs](https://alosha.dev/docs)
 
 ### Get an API key
 
@@ -427,6 +429,8 @@ Response:
   "message": "Account created. Keep your API key safe — it will not be shown again."
 }
 ```
+
+> **Note:** your key is shown only once. Registering an already-used email returns `409` — it never reveals the existing key. If you lose or leak your key, rotate it: `POST /auth/rotate-key` with `Authorization: Bearer <current-key>` returns a fresh key and revokes the old one.
 
 ### Compress a batch of images
 
