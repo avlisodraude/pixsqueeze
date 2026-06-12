@@ -62,9 +62,14 @@ export default [
     },
   },
 
-  // ── retainExif spec uses ES module import ────────────────────────────────
+  // ── Specs that use ES module imports ─────────────────────────────────────
   {
-    files: ['test/specs/options/retainExif.spec.js'],
+    files: [
+      'test/specs/options/retainExif.spec.js',
+      'test/specs/heic.spec.js',
+      'test/specs/tiff.spec.js',
+      'test/specs/raw.spec.js',
+    ],
     languageOptions: {
       sourceType: 'module',
     },
