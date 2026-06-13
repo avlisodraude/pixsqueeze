@@ -1,11 +1,11 @@
 /*!
- * PixSqueeze.js v1.3.2
- * https://pixsqueeze.alosha.dev
+ * PixSqueeze.js v1.3.3
+ * https://pixsqueeze.alosha.dev/demo
  *
  * Copyright 2018-present Eduardo Silva Navarrete
  * Released under the MIT license
  *
- * Date: 2026-06-13T06:11:27.295Z
+ * Date: 2026-06-13T20:41:00.049Z
  */
 'use strict';
 
