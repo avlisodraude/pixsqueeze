@@ -3,7 +3,7 @@ const commonjs = require('@rollup/plugin-commonjs');
 const { nodeResolve } = require('@rollup/plugin-node-resolve');
 const pkg = require('./package.json');
 
-const libName = pkg.name.replace('js', '');
+const libName = pkg.name.replace(/^@[^/]+\//, '');
 const name = 'PixSqueeze';
 const banner = `/*!
  * ${name}.js v${pkg.version}

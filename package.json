@@ -1,6 +1,9 @@
 {
-  "name": "pixsqueeze",
-  "version": "1.3.4",
+  "name": "@alosha/pixsqueeze",
+  "version": "1.3.5",
+  "publishConfig": {
+    "access": "public"
+  },
   "description": "Compress images in the browser before upload — HEIC, TIFF & camera RAW supported via server-side conversion.",
   "main": "dist/pixsqueeze.common.js",
   "module": "dist/pixsqueeze.esm.js",

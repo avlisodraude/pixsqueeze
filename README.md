@@ -1,6 +1,6 @@
 # PixSqueeze
 
-[![Coverage Status](https://img.shields.io/codecov/c/github/avlisodraude/pixsqueeze.svg)](https://codecov.io/gh/avlisodraude/pixsqueeze) [![Downloads](https://img.shields.io/npm/dm/pixsqueeze.svg)](https://www.npmjs.com/package/pixsqueeze) [![Version](https://img.shields.io/npm/v/pixsqueeze.svg)](https://www.npmjs.com/package/pixsqueeze) [![Gzip Size](https://img.shields.io/bundlephobia/minzip/pixsqueeze.svg)](https://unpkg.com/pixsqueeze/dist/pixsqueeze.common.js)
+[![Coverage Status](https://img.shields.io/codecov/c/github/avlisodraude/pixsqueeze.svg)](https://codecov.io/gh/avlisodraude/pixsqueeze) [![Downloads](https://img.shields.io/npm/dm/@alosha/pixsqueeze.svg)](https://www.npmjs.com/package/@alosha/pixsqueeze) [![Version](https://img.shields.io/npm/v/@alosha/pixsqueeze.svg)](https://www.npmjs.com/package/@alosha/pixsqueeze) [![Gzip Size](https://img.shields.io/bundlephobia/minzip/@alosha/pixsqueeze.svg)](https://unpkg.com/@alosha/pixsqueeze/dist/pixsqueeze.common.js)
 
 > JavaScript image compressor with server-side conversion for HEIC, TIFF, and camera RAW formats. The client-side compression uses the browser's native [HTMLCanvasElement.toBlob()](https://developer.mozilla.org/en-US/docs/Web/API/HTMLCanvasElement/toBlob) method — **lossy**, **asynchronous**, and behaviour varies across browsers. Precompress images on the client side before uploading, with automatic server-assisted pre-conversion for formats browsers cannot natively read.
 
@@ -38,13 +38,13 @@ Built by [Alosha](https://alosha.dev) — privacy-first developer tools powered 
 Install it:
 
 ```shell
-npm install pixsqueeze
+npm install @alosha/pixsqueeze
 ```
 
 Compress a file the user picked, in three lines:
 
 ```js
-import PixSqueeze from "pixsqueeze";
+import PixSqueeze from "@alosha/pixsqueeze";
 
 new PixSqueeze(file, {
   quality: 0.6,
@@ -72,7 +72,7 @@ dist/
 ### Install
 
 ```shell
-npm install pixsqueeze
+npm install @alosha/pixsqueeze
 ```
 
 ### Usage
@@ -103,7 +103,7 @@ The options for compressing. Check out the available [options](#options).
 ```
 
 ```js
-import PixSqueeze from "pixsqueeze";
+import PixSqueeze from "@alosha/pixsqueeze";
 
 document.getElementById("file").addEventListener("change", (e) => {
   const file = e.target.files[0];
@@ -144,7 +144,7 @@ Short, focused examples for the situations you'll run into most. Each one is mea
 The most common use case — shrink a file the user picked before sending it to your server.
 
 ```js
-import PixSqueeze from "pixsqueeze";
+import PixSqueeze from "@alosha/pixsqueeze";
 
 function compressAndUpload(file) {
   new PixSqueeze(file, {
@@ -205,7 +205,7 @@ new PixSqueeze(file, {
 Browsers can't decode HEIC/HEIF — the format iPhones save photos in by default. PixSqueeze ships a small server (in `server/`) that converts HEIC → JPEG first, then the client-side compressor takes over. The pattern: detect the format, send to the server if needed, then compress as usual.
 
 ```js
-import PixSqueeze from "pixsqueeze";
+import PixSqueeze from "@alosha/pixsqueeze";
 
 async function isHeic(file) {
   // A simple check — see `src/heic.js` for the full magic-byte detection used internally
