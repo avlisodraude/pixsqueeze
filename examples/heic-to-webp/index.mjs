@@ -16,7 +16,10 @@ async function startMockServer() {
     res.setHeader("content-type", "application/json");
     res.end(
       JSON.stringify({
-        results: [{ data: Buffer.from("fake-webp-bytes").toString("base64") }],
+        processed: 1,
+        failed: 0,
+        results: [{ name: "photo.webp", originalName: "photo.heic", size: 51234, mimeType: "image/webp", data: Buffer.from("fake-webp-bytes").toString("base64") }],
+        usage: { used: 1, limit: 100, remaining: 99, plan: "FREE" },
       }),
     );
   });
@@ -28,7 +31,7 @@ async function startMockServer() {
 const heicFile = new Blob([Buffer.from("pretend this is HEIC bytes from an iPhone")]);
 
 const form = new FormData();
-form.append("files[]", heicFile, "photo.heic");
+form.append("files", heicFile, "photo.heic");
 form.append("mimeType", "image/webp");
 form.append("quality", "0.8");
 

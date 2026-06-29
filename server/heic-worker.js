@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * Worker thread for HEIC → JPEG conversion.
+ * Worker thread for HEIC → PNG decoding.
  *
  * heic-convert is a pure-JS / WASM library. Its decode step is entirely
  * synchronous-on-the-CPU and can take 200–800 ms for a typical 12 MP photo.
@@ -9,21 +9,24 @@
  * server can continue accepting and parsing other requests while the
  * conversion is in progress.
  *
+ * We decode to a lossless PNG intermediate; the caller (sharp) then resizes
+ * and re-encodes to the requested output format (JPEG/PNG/WebP) at the chosen
+ * quality, so there is no double-lossy compression.
+ *
  * Communication protocol:
- *   Main → Worker  { buffer: Buffer, quality: number }
- *   Worker → Main  { ok: true,  result: Buffer }          on success
- *   Worker → Main  { ok: false, error: string }           on failure
+ *   Main → Worker  { buffer: Buffer }
+ *   Worker → Main  { ok: true,  result: Buffer }   on success
+ *   Worker → Main  { ok: false, error: string }    on failure
  */
 
 const { parentPort } = require('worker_threads');
 const heicConvert = require('heic-convert');
 
-parentPort.on('message', async ({ buffer, quality }) => {
+parentPort.on('message', async ({ buffer }) => {
   try {
     const outputBuffer = await heicConvert({
       buffer,
-      format: 'JPEG',
-      quality,
+      format: 'PNG',
     });
     parentPort.postMessage({ ok: true, result: Buffer.from(outputBuffer) });
   } catch (err) {

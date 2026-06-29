@@ -18,8 +18,10 @@ async function startMockServer() {
     res.setHeader("content-type", "application/json");
     res.end(
       JSON.stringify({
-        results: [{ originalName: "upload.jpg", data: Buffer.from("fake-compressed-bytes").toString("base64") }],
-        usage: { remaining: 4998 },
+        processed: 1,
+        failed: 0,
+        results: [{ name: "upload.jpg", originalName: "upload.jpg", size: 84213, mimeType: "image/jpeg", data: Buffer.from("fake-compressed-bytes").toString("base64") }],
+        usage: { used: 2, limit: 2000, remaining: 1998, plan: "STARTER" },
       }),
     );
   });
@@ -29,7 +31,7 @@ async function startMockServer() {
 
 const buffer = Buffer.from("pretend this is JPEG bytes from a real upload");
 const form = new FormData();
-form.append("files[]", new Blob([buffer]), "upload.jpg");
+form.append("files", new Blob([buffer]), "upload.jpg");
 form.append("quality", "0.7");
 form.append("maxWidth", "1600");
 
@@ -41,7 +43,7 @@ const res = await fetch(`${baseUrl}/compress/batch`, {
 const { results, usage } = await res.json();
 
 for (const img of results) {
-  await writeFile(img.originalName, Buffer.from(img.data, "base64"));
+  await writeFile(img.name, Buffer.from(img.data, "base64"));
 }
 console.log(usage.remaining + " compressions left this month");
 mockServer?.close();
