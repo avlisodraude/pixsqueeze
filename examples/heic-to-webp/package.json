@@ -1,0 +1,10 @@
+{
+  "name": "heic-to-webp-example",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "PixSqueeze recipe: convert iPhone HEIC uploads to WebP on the fly",
+  "scripts": {
+    "start": "node index.mjs"
+  }
+}

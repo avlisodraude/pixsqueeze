@@ -1,0 +1,10 @@
+{
+  "name": "batch-compress-example",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "PixSqueeze recipe: compress and store user uploads in your Node backend",
+  "scripts": {
+    "start": "node index.mjs"
+  }
+}
