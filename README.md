@@ -1,6 +1,6 @@
 # PixSqueeze
 
-[![Coverage Status](https://img.shields.io/codecov/c/github/avlisodraude/pixsqueeze.svg)](https://codecov.io/gh/avlisodraude/pixsqueeze) [![Downloads](https://img.shields.io/npm/dm/@alosha/pixsqueeze.svg)](https://www.npmjs.com/package/@alosha/pixsqueeze) [![Version](https://img.shields.io/npm/v/@alosha/pixsqueeze.svg)](https://www.npmjs.com/package/@alosha/pixsqueeze) [![Gzip Size](https://img.shields.io/bundlephobia/minzip/@alosha/pixsqueeze.svg)](https://unpkg.com/@alosha/pixsqueeze/dist/pixsqueeze.common.js)
+[![Coverage Status](https://img.shields.io/codecov/c/github/avlisodraude/pixsqueeze.svg)](https://codecov.io/gh/avlisodraude/pixsqueeze) [![Downloads](https://img.shields.io/npm/dm/@alosha/pixsqueeze.svg)](https://www.npmjs.com/package/@alosha/pixsqueeze) [![Version](https://img.shields.io/npm/v/@alosha/pixsqueeze.svg)](https://www.npmjs.com/package/@alosha/pixsqueeze) [![Gzip Size](https://img.shields.io/bundlephobia/minzip/@alosha/pixsqueeze.svg)](https://unpkg.com/@alosha/pixsqueeze/dist/pixsqueeze.common.js) [![Types included](https://img.shields.io/badge/types-included-blue?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 
 > JavaScript image compressor with server-side conversion for HEIC, TIFF, and camera RAW formats. The client-side compression uses the browser's native [HTMLCanvasElement.toBlob()](https://developer.mozilla.org/en-US/docs/Web/API/HTMLCanvasElement/toBlob) method — **lossy**, **asynchronous**, and behaviour varies across browsers. Precompress images on the client side before uploading, with automatic server-assisted pre-conversion for formats browsers cannot natively read.
 
@@ -25,6 +25,7 @@ Built by [Alosha](https://alosha.dev) — privacy-first developer tools powered 
 - [Demo server](#demo-server)
 - [Server-side conversion API](#server-side-conversion-api)
 - [Batch API](#batch-api)
+  - [Production recipes](#production-recipes)
 - [Options](#options)
 - [Methods](#methods)
 - [No conflict](#no-conflict)
@@ -461,6 +462,61 @@ Response:
 ```
 
 Supported input formats: JPEG, PNG, WebP, GIF, HEIC/HEIF, TIFF, and camera RAW (CR2, NEF, ARW, DNG, and more).
+
+### Production recipes
+
+Real problems, complete solutions — copy, paste, ship.
+
+#### Compress and store user uploads in your Node backend
+
+**The problem:** you want to shrink every uploaded image before it hits storage, without bundling an image library or a native codec into your API.
+
+```js
+import { writeFile } from "node:fs/promises";
+
+// Forward an upload to PixSqueeze, then persist the compressed result.
+const form = new FormData();
+form.append("files[]", new Blob([buffer]), "upload.jpg");
+form.append("quality", "0.7");
+form.append("maxWidth", "1600");
+
+const res = await fetch("https://pixsqueeze-api-production.up.railway.app/compress/batch", {
+  method: "POST",
+  headers: { Authorization: "Bearer " + process.env.PIXSQUEEZE_KEY },
+  body: form,
+});
+
+const { results, usage } = await res.json();
+for (const img of results) {
+  await writeFile(img.originalName, Buffer.from(img.data, "base64"));
+}
+console.log(usage.remaining + " compressions left this month");
+```
+
+**Why it works:** the batch endpoint returns each compressed image as base64 plus a live usage counter in one round-trip, so you compress, persist, and track quota without a second call or any image library in your own stack.
+
+#### Convert iPhone HEIC uploads to WebP on the fly
+
+**The problem:** phones upload HEIC and cameras upload RAW — formats browsers cannot display — and decoding them client-side is a non-starter.
+
+```js
+// Browsers can't decode HEIC — let PixSqueeze convert + compress server-side.
+const form = new FormData();
+form.append("files[]", heicFile); // a .heic straight from an iPhone
+form.append("mimeType", "image/webp"); // force WebP output
+form.append("quality", "0.8");
+
+const res = await fetch("https://pixsqueeze-api-production.up.railway.app/compress/batch", {
+  method: "POST",
+  headers: { Authorization: "Bearer " + apiKey },
+  body: form,
+});
+
+const { results } = await res.json();
+const src = "data:image/webp;base64," + results[0].data; // ready for <img src>
+```
+
+**Why it works:** PixSqueeze decodes HEIC/RAW/TIFF server-side and re-encodes to a web format in the same request, so you accept whatever a device produces and hand the browser a WebP it can actually render — no client-side codec.
 
 ### Check monthly usage
 
