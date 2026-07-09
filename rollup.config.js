@@ -15,42 +15,64 @@ const banner = `/*!
  * Date: ${new Date().toISOString()}
  */`;
 
-module.exports = {
-  input: 'src/index.js',
+const helperModules = ['heic', 'tiff', 'raw'];
+
+const helperConfigs = helperModules.map((mod) => ({
+  input: `src/${mod}.js`,
   output: [
     {
       banner,
-      name,
-      file: `dist/${libName}.js`,
-      format: 'umd',
-    },
-    {
-      banner,
-      file: `dist/${libName}.common.js`,
-      format: 'cjs',
-      exports: 'auto',
-    },
-    {
-      banner,
-      file: `dist/${libName}.esm.js`,
+      file: `dist/${mod}.esm.js`,
       format: 'esm',
     },
     {
       banner,
-      name,
-      file: `dist/${libName}.min.js`,
-      format: 'umd',
-      plugins: [terser({ format: { comments: /^!/ } })],
-    },
-    {
-      banner,
-      name,
-      file: `docs/js/${libName}.js`,
-      format: 'umd',
+      file: `dist/${mod}.common.js`,
+      format: 'cjs',
+      exports: 'named',
     },
   ],
-  plugins: [
-    nodeResolve(),
-    commonjs({ include: 'node_modules/**' }),
-  ],
-};
+}));
+
+module.exports = [
+  {
+    input: 'src/index.js',
+    output: [
+      {
+        banner,
+        name,
+        file: `dist/${libName}.js`,
+        format: 'umd',
+      },
+      {
+        banner,
+        file: `dist/${libName}.common.js`,
+        format: 'cjs',
+        exports: 'auto',
+      },
+      {
+        banner,
+        file: `dist/${libName}.esm.js`,
+        format: 'esm',
+      },
+      {
+        banner,
+        name,
+        file: `dist/${libName}.min.js`,
+        format: 'umd',
+        plugins: [terser({ format: { comments: /^!/ } })],
+      },
+      {
+        banner,
+        name,
+        file: `docs/js/${libName}.js`,
+        format: 'umd',
+      },
+    ],
+    plugins: [
+      nodeResolve(),
+      commonjs({ include: 'node_modules/**' }),
+    ],
+  },
+  ...helperConfigs,
+];

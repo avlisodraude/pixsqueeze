@@ -9,6 +9,30 @@
   "module": "dist/pixsqueeze.esm.js",
   "browser": "dist/pixsqueeze.js",
   "types": "types/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./types/index.d.ts",
+      "import": "./dist/pixsqueeze.esm.js",
+      "require": "./dist/pixsqueeze.common.js"
+    },
+    "./heic": {
+      "types": "./types/heic.d.ts",
+      "import": "./dist/heic.esm.js",
+      "require": "./dist/heic.common.js"
+    },
+    "./tiff": {
+      "types": "./types/tiff.d.ts",
+      "import": "./dist/tiff.esm.js",
+      "require": "./dist/tiff.common.js"
+    },
+    "./raw": {
+      "types": "./types/raw.d.ts",
+      "import": "./dist/raw.esm.js",
+      "require": "./dist/raw.common.js"
+    },
+    "./package.json": "./package.json",
+    "./src/*": "./src/*"
+  },
   "files": [
     "src",
     "dist",

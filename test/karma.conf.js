@@ -19,7 +19,7 @@ function createRollupPreprocessor(args, config, emitter, logger) {
       });
       const { output } = await bundle.generate({
         format: 'iife',
-        name: rollupConfig.output[0].name,
+        name: rollupConfig[0].output[0].name,
         sourcemap: false,
       });
       log.info('Generating bundle for ./%s', location);

@@ -207,29 +207,10 @@ Browsers can't decode HEIC/HEIF — the format iPhones save photos in by default
 
 ```js
 import PixSqueeze from "@alosha/pixsqueeze";
-
-async function isHeic(file) {
-  // A simple check — see `src/heic.js` for the full magic-byte detection used internally
-  return file.type === "image/heic" || file.type === "image/heif" || /\.heic$|\.heif$/i.test(file.name);
-}
-
-async function convertHeicOnServer(file) {
-  const formData = new FormData();
-  formData.append("file", file);
-
-  const response = await fetch("/api/convert/heic", { method: "POST", body: formData });
-
-  if (!response.ok) {
-    throw new Error("HEIC conversion failed");
-  }
-
-  const blob = await response.blob();
-
-  return new File([blob], file.name.replace(/\.\w+$/, ".jpg"), { type: "image/jpeg" });
-}
+import { isHeicFile, convertHeicOnServer } from "@alosha/pixsqueeze/heic";
 
 async function handleFile(file) {
-  const resolvedFile = (await isHeic(file)) ? await convertHeicOnServer(file) : file;
+  const resolvedFile = (await isHeicFile(file)) ? await convertHeicOnServer(file) : file;
 
   new PixSqueeze(resolvedFile, {
     quality: 0.6,
