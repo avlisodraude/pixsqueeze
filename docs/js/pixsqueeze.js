@@ -1,11 +1,11 @@
 /*!
- * PixSqueeze.js v1.3.5
+ * PixSqueeze.js v1.4.0
  * https://pixsqueeze.alosha.dev/demo
  *
  * Copyright 2018-present Eduardo Silva Navarrete
  * Released under the MIT license
  *
- * Date: 2026-07-09T07:50:58.470Z
+ * Date: 2026-07-09T14:47:02.480Z
  */
 (function (global, factory) {
   typeof exports === 'object' && typeof module !== 'undefined' ? module.exports = factory() :

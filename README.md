@@ -203,7 +203,9 @@ new PixSqueeze(file, {
 
 ### Compress an iPhone HEIC photo
 
-Browsers can't decode HEIC/HEIF — the format iPhones save photos in by default. PixSqueeze ships a small server (in `server/`) that converts HEIC → JPEG first, then the client-side compressor takes over. The pattern: detect the format, send to the server if needed, then compress as usual.
+Browsers can't decode HEIC/HEIF — the format iPhones save photos in by default. The conversion happens on a server: detect the format in the browser, POST the file to a conversion endpoint, then hand the returned JPEG to the client-side compressor.
+
+> **You need to run the conversion endpoint yourself.** The npm package ships the browser-side helpers only. The Express server that implements `/api/convert/heic`, `/api/convert/tiff` and `/api/convert/raw` lives in [`server/`](https://github.com/avlisodraude/compressorjs/tree/main/server) in this repository — clone it and deploy it, or point the helpers at your own endpoint via their second argument. There is no hosted endpoint bundled with the package.
 
 ```js
 import PixSqueeze from "@alosha/pixsqueeze";
@@ -224,31 +226,30 @@ async function handleFile(file) {
 
 ### Compress a TIFF or camera RAW file
 
-Same idea as HEIC — these formats aren't readable by `<canvas>`, so they're routed through the server's `/api/convert/tiff` or `/api/convert/raw` endpoints first.
+Same idea as HEIC — these formats aren't readable by `<canvas>`, so they're routed through a `/api/convert/tiff` or `/api/convert/raw` endpoint first. Each format has its own subpath import.
 
 ```js
-async function convertOnServer(file, endpoint) {
-  const formData = new FormData();
-  formData.append("file", file);
-
-  const response = await fetch(endpoint, { method: "POST", body: formData });
-
-  if (!response.ok) {
-    throw new Error(`Conversion failed (${response.status})`);
-  }
-
-  const blob = await response.blob();
-
-  return new File([blob], file.name.replace(/\.\w+$/, ".jpg"), { type: "image/jpeg" });
-}
+import PixSqueeze from "@alosha/pixsqueeze";
+import { isTiffFile, convertTiffOnServer } from "@alosha/pixsqueeze/tiff";
+import { isRawFile, convertRawOnServer } from "@alosha/pixsqueeze/raw";
 
 // Scanned document
-const jpegFromTiff = await convertOnServer(tiffFile, "/api/convert/tiff");
-new PixSqueeze(jpegFromTiff, { quality: 0.7, success: (r) => console.log(r) });
+if (await isTiffFile(tiffFile)) {
+  const jpeg = await convertTiffOnServer(tiffFile);
+  new PixSqueeze(jpeg, { quality: 0.7, success: (r) => console.log(r) });
+}
 
 // Camera RAW (.cr2, .nef, .arw, .dng, etc. — see the full list in the API docs)
-const jpegFromRaw = await convertOnServer(rawFile, "/api/convert/raw");
-new PixSqueeze(jpegFromRaw, { quality: 0.7, success: (r) => console.log(r) });
+if (await isRawFile(rawFile)) {
+  const jpeg = await convertRawOnServer(rawFile);
+  new PixSqueeze(jpeg, { quality: 0.7, success: (r) => console.log(r) });
+}
+```
+
+Each `convert*OnServer` helper takes an optional second argument to override the endpoint, so you can point it at wherever you deployed the server:
+
+```js
+const jpeg = await convertRawOnServer(rawFile, "https://images.example.com/convert/raw");
 ```
 
 ### Add a watermark while compressing
@@ -299,7 +300,9 @@ job.abort();
 
 ## Demo server
 
-An Express development server is bundled under `server/`. It serves the `docs/` demo page and exposes the server-side conversion API endpoints.
+An Express development server lives under `server/` **in this repository**. It serves the `docs/` demo page and exposes the server-side conversion API endpoints.
+
+> This server is **not** part of the npm package — `npm install @alosha/pixsqueeze` gives you the browser-side compressor and the conversion helpers, not the endpoints they call. To use HEIC/TIFF/RAW conversion in production you must deploy this server yourself (or reimplement the three endpoints against your own image pipeline). It is a development server: review it before exposing it to untrusted input.
 
 ### Start the server
 
