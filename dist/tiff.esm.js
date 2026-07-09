@@ -1,11 +1,11 @@
 /*!
- * PixSqueeze.js v1.4.0
+ * PixSqueeze.js v1.4.1
  * https://pixsqueeze.alosha.dev/demo
  *
  * Copyright 2018-present Eduardo Silva Navarrete
  * Released under the MIT license
  *
- * Date: 2026-07-09T14:47:02.480Z
+ * Date: 2026-07-09T14:52:42.316Z
  */
 /**
  * TIFF client-side utilities
