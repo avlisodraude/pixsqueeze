@@ -312,15 +312,28 @@ npm run server
 
 Opens at `http://localhost:3000` by default. Set the `PORT` environment variable to override.
 
+Environment variables:
+
+| Variable                 | Default | Purpose                                                     |
+| ------------------------ | ------- | ------------------------------------------------------------ |
+| `CORS_ORIGIN`             | `*`     | Allowed origin(s) for the conversion API. Comma-separate for multiple. Pin this in production. |
+| `MAX_UPLOAD_MB`           | `100`   | Per-upload size ceiling.                                     |
+| `UPLOAD_CONCURRENCY`      | `6`     | Max requests holding an upload buffer in memory at once.     |
+| `RATE_LIMIT_WINDOW_MS`    | `60000` | Rate-limit window, per IP, for the conversion endpoints.     |
+| `RATE_LIMIT_MAX`          | `20`    | Max conversion requests per IP per window.                   |
+| `HEIC_WORKER_TIMEOUT_MS`  | `30000` | Max time a HEIC decode may run before its worker is killed.  |
+
 ### Server dependencies
 
-| Package        | Purpose                                               |
-| -------------- | ----------------------------------------------------- |
-| `express`      | HTTP server                                           |
-| `multer`       | Multipart file upload handling (200 MB limit)         |
-| `sharp`        | TIFF and RAW → JPEG conversion via libvips            |
-| `heic-convert` | HEIC/HEIF → JPEG conversion (runs in a worker thread) |
-| `compression`  | Gzip/Brotli for static assets and JSON responses      |
+| Package             | Purpose                                                    |
+| -------------------- | ----------------------------------------------------------- |
+| `express`            | HTTP server                                                 |
+| `cors`               | Cross-origin access to the conversion API                   |
+| `express-rate-limit` | Per-IP request limiting on the conversion endpoints         |
+| `multer`             | Multipart file upload handling (see `MAX_UPLOAD_MB`)        |
+| `sharp`              | TIFF and RAW → JPEG conversion via libvips                  |
+| `heic-convert`       | HEIC/HEIF → JPEG conversion (runs in a fixed worker pool)    |
+| `compression`        | Gzip/Brotli for static assets and JSON responses             |
 
 [⬆ back to top](#table-of-contents)
 
@@ -332,9 +345,10 @@ All endpoints accept a `multipart/form-data` POST with a single field named `fil
 
 - **`200`** — `image/jpeg` binary body + `X-Original-Name` header with the renamed filename
 - **`400`** — No file uploaded or malformed request
-- **`413`** — File exceeds the 200 MB upload limit
+- **`413`** — File exceeds the `MAX_UPLOAD_MB` upload limit
 - **`415`** — File type not accepted by this endpoint
 - **`422`** — Conversion failed (corrupt or unsupported variant)
+- **`429`** — Too many conversion requests from this IP; retry after the rate-limit window
 
 ### `POST /api/convert/heic`
 
