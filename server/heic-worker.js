@@ -9,9 +9,9 @@
  * server can continue accepting and parsing other requests while the
  * conversion is in progress.
  *
- * We decode to a lossless PNG intermediate; the caller (sharp) then resizes
- * and re-encodes to the requested output format (JPEG/PNG/WebP) at the chosen
- * quality, so there is no double-lossy compression.
+ * We decode to a lossless PNG intermediate; the caller re-encodes that PNG to
+ * JPEG via sharp (see `sharpToJpeg` in app.js), so there is no double-lossy
+ * compression.
  *
  * Communication protocol:
  *   Main → Worker  { buffer: Buffer }
