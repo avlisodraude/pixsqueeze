@@ -1,23 +1,52 @@
 /*!
- * PixSqueeze.js v1.4.1
+ * PixSqueeze.js v1.5.0
  * https://pixsqueeze.alosha.dev/demo
  *
  * Copyright 2018-present Eduardo Silva Navarrete
  * Released under the MIT license
  *
- * Date: 2026-07-09T14:52:42.316Z
+ * Date: 2026-11-02T13:02:53.886Z
  */
 'use strict';
+
+/** Shared transport for the three optional server conversion helpers. */
+async function convert(file, endpoint, format, options = {}) {
+  const form = new FormData();
+  form.append('file', file);
+
+  const res = await fetch(endpoint, {
+    method: 'POST',
+    body: form,
+    signal: options.signal,
+    headers: options.headers,
+    credentials: options.credentials,
+  });
+
+  if (!res.ok) {
+    let message = `Server responded ${res.status}`;
+    try {
+      const json = await res.json();
+      if (json.error) message = json.error;
+    } catch (e) { /* response was not JSON */ }
+    throw new Error(`${format.toUpperCase()} conversion failed: ${message}`);
+  }
+
+  const blob = await res.blob();
+  const originalName = file.name || `image.${format}`;
+  const outputName = res.headers.get('X-Original-Name') || `${originalName.replace(/\.[^.]+$/, '')}.jpg`;
+  return new File([blob], outputName, { type: 'image/jpeg' });
+}
 
 /**
  * HEIC client-side utilities
  *
  * These helpers detect HEIC/HEIF files and convert them via the server-side
  * endpoint before passing the result to PixSqueeze.js.  No WASM, no large
- * dependencies — the heavy decoding work is done on the server using Sharp.
+ * dependencies in the browser — the bundled server decodes HEIC in a worker
+ * with heic-convert and uses Sharp to encode the intermediate PNG as JPEG.
  *
  * Usage:
- *   import { isHeicFile, convertHeicOnServer } from './heic.js';
+ *   import { isHeicFile, convertHeicOnServer } from '@alosha/pixsqueeze/heic';
  *
  *   async function handleFile(file) {
  *     if (await isHeicFile(file)) {
@@ -66,33 +95,15 @@ async function isHeicFile(file) {
  *
  * @param {File|Blob} file - The HEIC file to convert.
  * @param {string} [endpoint='/api/convert/heic'] - Override the server URL if needed.
+ * @param {Object} [options={}] - Fetch request options; no timeout is added here.
+ * @param {AbortSignal} [options.signal] - Cancel the upload or response read.
+ * @param {HeadersInit} [options.headers] - Request headers; omit multipart Content-Type.
+ * @param {RequestCredentials} [options.credentials] - Fetch credentials policy.
  * @returns {Promise<File>} A JPEG File with the same base name as the original.
  * @throws {Error} If the network request fails or the server returns an error.
  */
-async function convertHeicOnServer(file, endpoint = '/api/convert/heic') {
-  const form = new FormData();
-  form.append('file', file);
-
-  const res = await fetch(endpoint, { method: 'POST', body: form });
-
-  if (!res.ok) {
-    let message = `Server responded ${res.status}`;
-    try {
-      const json = await res.json();
-      if (json.error) message = json.error;
-    } catch (e) { /* response was not JSON */ }
-    throw new Error(`HEIC conversion failed: ${message}`);
-  }
-
-  const blob = await res.blob();
-
-  // Derive the output filename — use the header the server sets, or fall back
-  // to replacing the extension on the original name.
-  const serverName = res.headers.get('X-Original-Name');
-  const originalName = file.name || 'image.heic';
-  const outputName = serverName || originalName.replace(/\.heic$/i, '.jpg');
-
-  return new File([blob], outputName, { type: 'image/jpeg' });
+async function convertHeicOnServer(file, endpoint = '/api/convert/heic', options = {}) {
+  return convert(file, endpoint, 'heic', options);
 }
 
 exports.convertHeicOnServer = convertHeicOnServer;

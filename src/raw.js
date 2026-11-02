@@ -1,3 +1,5 @@
+import convert from './convert';
+
 /**
  * Camera RAW client-side utilities
  *
@@ -5,7 +7,8 @@
  * and converts them via the server-side endpoint before passing the result to
  * PixSqueeze.js.
  *
- * Supported formats (server converts all of these to JPEG via sharp/libvips):
+ * Recognized format candidates (actual decoding depends on the installed
+ * sharp/libvips/LibRaw build and camera variant; unsupported inputs return 422):
  *   - DNG  — Adobe / Apple ProRAW (iOS)
  *   - CR2 / CR3 — Canon
  *   - NEF  — Nikon
@@ -18,7 +21,7 @@
  *   - 3FR / DCR / KDC / MRW / NRW / RWL / X3F — others
  *
  * Usage:
- *   import { isRawFile, convertRawOnServer } from './raw.js';
+ *   import { isRawFile, convertRawOnServer } from '@alosha/pixsqueeze/raw';
  *
  *   async function handleFile(file) {
  *     if (await isRawFile(file)) {
@@ -76,28 +79,13 @@ export async function isRawFile(file) {
  *
  * @param {File|Blob} file - The RAW file to convert.
  * @param {string} [endpoint='/api/convert/raw'] - Override the server URL if needed.
+ * @param {Object} [options={}] - Fetch request options; no timeout is added here.
+ * @param {AbortSignal} [options.signal] - Cancel the upload or response read.
+ * @param {HeadersInit} [options.headers] - Request headers; omit multipart Content-Type.
+ * @param {RequestCredentials} [options.credentials] - Fetch credentials policy.
  * @returns {Promise<File>} A JPEG File with the same base name as the original.
  * @throws {Error} If the network request fails or the server returns an error.
  */
-export async function convertRawOnServer(file, endpoint = '/api/convert/raw') {
-  const form = new FormData();
-  form.append('file', file);
-
-  const res = await fetch(endpoint, { method: 'POST', body: form });
-
-  if (!res.ok) {
-    let message = `Server responded ${res.status}`;
-    try {
-      const json = await res.json();
-      if (json.error) message = json.error;
-    } catch (e) { /* response was not JSON */ }
-    throw new Error(`RAW conversion failed: ${message}`);
-  }
-
-  const blob = await res.blob();
-  const serverName = res.headers.get('X-Original-Name');
-  const originalName = file.name || 'image.dng';
-  const outputName = serverName || originalName.replace(/\.(dng|cr2|cr3|nef|arw|raf|rw2|pef|orf|srw|3fr|dcr|kdc|mrw|nrw|rwl|x3f)$/i, '.jpg');
-
-  return new File([blob], outputName, { type: 'image/jpeg' });
+export async function convertRawOnServer(file, endpoint = '/api/convert/raw', options = {}) {
+  return convert(file, endpoint, 'raw', options);
 }

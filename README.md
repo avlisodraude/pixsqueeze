@@ -2,7 +2,7 @@
 
 [![Coverage Status](https://img.shields.io/codecov/c/github/avlisodraude/pixsqueeze.svg)](https://codecov.io/gh/avlisodraude/pixsqueeze) [![Downloads](https://img.shields.io/npm/dm/@alosha/pixsqueeze.svg)](https://www.npmjs.com/package/@alosha/pixsqueeze) [![Version](https://img.shields.io/npm/v/@alosha/pixsqueeze.svg)](https://www.npmjs.com/package/@alosha/pixsqueeze) [![Gzip Size](https://img.shields.io/bundlephobia/minzip/@alosha/pixsqueeze.svg)](https://unpkg.com/@alosha/pixsqueeze/dist/pixsqueeze.common.js) [![Types included](https://img.shields.io/badge/types-included-blue?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 
-> JavaScript image compressor with server-side conversion for HEIC, TIFF, and camera RAW formats. The client-side compression uses the browser's native [HTMLCanvasElement.toBlob()](https://developer.mozilla.org/en-US/docs/Web/API/HTMLCanvasElement/toBlob) method — **lossy**, **asynchronous**, and behaviour varies across browsers. Precompress images on the client side before uploading, with automatic server-assisted pre-conversion for formats browsers cannot natively read.
+> Compress and resize images in the browser, with a Promise API and optional target file sizes. HEIC, TIFF, and camera RAW detection can route files to explicitly configured conversion endpoints. Browser encoding uses [HTMLCanvasElement.toBlob()](https://developer.mozilla.org/en-US/docs/Web/API/HTMLCanvasElement/toBlob); available formats and output sizes depend on the browser, and JPEG/WebP encoding is lossy.
 
 Built by [Alosha](https://alosha.dev) — privacy-first developer tools powered by open source.
 
@@ -11,8 +11,13 @@ Built by [Alosha](https://alosha.dev) — privacy-first developer tools powered 
 ## Table of contents
 
 - [Quick start](#quick-start)
+  - [Asynchronous compression and target sizes](#asynchronous-compression-and-target-sizes)
+  - [Result fields](#result-fields)
+  - [Cancellation and timeouts](#cancellation-and-timeouts)
+  - [Server conversion and request options](#server-conversion-and-request-options)
 - [Main Files](#main-files)
 - [Getting started](#getting-started)
+  - [TypeScript](#typescript)
 - [Recipes](#recipes)
   - [Compress an image before upload](#compress-an-image-before-upload)
   - [Resize while compressing](#resize-while-compressing)
@@ -30,6 +35,7 @@ Built by [Alosha](https://alosha.dev) — privacy-first developer tools powered 
 - [Methods](#methods)
 - [No conflict](#no-conflict)
 - [Browser support](#browser-support)
+- [Development and verification](#development-and-verification)
 - [Contributing](#contributing)
 - [Versioning](#versioning)
 - [License](#license)
@@ -54,7 +60,131 @@ new PixSqueeze(file, {
 });
 ```
 
-That's the whole API surface for the common case — pick a quality between `0` (smallest, lowest quality) and `1` (largest, original quality), get a compressed file back in `success`. Everything below shows how to handle more specific scenarios: resizing, converting formats, handling iPhone photos (HEIC), scans (TIFF), camera RAW files, watermarks, and more.
+The constructor returns output through `success` and errors through `error`. Quality ranges from `0` to `1`; a larger value generally means higher quality and larger output, but `1` does not restore information lost in the input. For `await` and target-size control, use the static API below. Version 1.5.0 adds the static Promise API, target-size controls, and corrected module/type exports described below. See the [changelog](CHANGELOG.md) for release details.
+
+### Asynchronous compression and target sizes
+
+The callback constructor remains supported. For a Promise, use `PixSqueeze.compress()`:
+
+`targetSize`, `maxAttempts`, `minQuality`, `allowResize`, `conversion`, `signal`, and `timeout` belong to this static API. Passing them to `new PixSqueeze()` does not enable the new workflow. All ordinary compression options are accepted except `success` and `error`; completion and failure belong to the Promise.
+
+```js
+import PixSqueeze from '@alosha/pixsqueeze';
+
+const result = await PixSqueeze.compress(file, {
+  mimeType: 'image/jpeg',
+  targetSize: 500_000, // bytes: 500 KB
+  quality: 0.85,
+  minQuality: 0.4,
+  allowResize: true,
+  maxWidth: 1920,
+});
+
+if (result.targetMet === false) {
+  // Do not send this file to an endpoint with a strict 500 KB limit.
+  console.warn('Target size could not be reached:', result.outputSize);
+} else {
+  const form = new FormData();
+  form.append('image', result.file);
+  // Send form to your upload endpoint.
+}
+```
+
+JPEG/WebP quality is searched first, starting at `quality` and going no lower than `minQuality` (or the requested quality when it is lower). Smaller dimensions are allowed only when `allowResize` is `true`; minimum width and height constraints remain in force. PNG encoding does not use a quality search. Every attempt starts from the same input image, rather than recompressing a previous result. Drawing hooks run again on each encoding attempt.
+
+A target is best effort. When it cannot be reached, the Promise resolves with the smallest result found and `targetMet: false`. Network, decoding, and drawing failures reject the Promise. Ordinary compression without a target uses one attempt and returns `targetMet: null`.
+
+| Additional option | Default | Meaning |
+| --- | --- | --- |
+| `targetSize` | unset | Positive integer output limit in bytes. |
+| `maxAttempts` | `8` | Total browser encoding attempts, from 1 to 20. |
+| `minQuality` | `0.4` | Lower quality bound, from 0 to 1. |
+| `allowResize` | `false` | Permit smaller dimensions to approach the target. |
+| `signal` | unset | `AbortSignal` for cancellation, including conversion uploads. |
+| `timeout` | `30000` | Total timeout in milliseconds, from 0 to 2147483647; `0` disables it. |
+| `conversion` | unset | Explicit server endpoints and optional request headers/credentials. |
+
+Invalid byte targets, attempt limits, quality bounds, and timeout values reject with `RangeError`. `quality` and `minQuality` must be finite numbers from 0 to 1. To keep a large PNG as PNG, set `convertSize: Infinity`; otherwise the existing default can convert PNG inputs over 5,000,000 bytes to JPEG.
+
+### Result fields
+
+| Field | Meaning |
+| --- | --- |
+| `file` | Output `File`/`Blob`, ready for a download or upload. |
+| `originalSize` | Byte size of the caller's original input, before any server conversion. |
+| `outputSize` | Byte size of the returned file, including retained EXIF. |
+| `mimeType` | Actual output MIME type, including any browser encoder fallback. |
+| `width`, `height` | Output dimensions in pixels. |
+| `targetSize` | Requested byte target, or `null` without a target. |
+| `targetMet` | `true` when output is within the target, `false` when it is not, or `null` without a target. |
+| `attempts` | Number of browser encoding attempts; excludes the optional server conversion. |
+| `converted` | Whether a configured server conversion was used. |
+| `returnedOriginal` | Whether `file` is the same object as the caller's original input. |
+
+Existing `strict` behavior can return the original image when compression would enlarge it. A converted JPEG that is returned unchanged still has `converted: true` and `returnedOriginal: false`, because it is not the original uploaded HEIC/TIFF/RAW file. Returning an original file can also retain its original metadata; `retainExif: false` is not an unconditional metadata-removal guarantee.
+
+### Cancellation and timeouts
+
+```js
+const controller = new AbortController();
+const pending = PixSqueeze.compress(file, {
+  signal: controller.signal,
+  timeout: 15_000,
+});
+
+// Wire this to your application's cancel button while processing is pending.
+cancelButton.addEventListener('click', () => controller.abort(), { once: true });
+
+try {
+  const result = await pending;
+  console.log(result.file);
+} catch (error) {
+  if (error.name === 'AbortError') console.log('Cancelled');
+  else if (error.name === 'TimeoutError') console.error('Processing timed out');
+  else throw error;
+}
+```
+
+The timeout covers detection, conversion, and browser encoding together. Standard cancellation rejects with `AbortError`; a deadline rejects with `TimeoutError`. If a caller supplies a custom reason to `controller.abort(reason)`, that reason is propagated. A browser encoder already running cannot be interrupted mid-encode, but its late output is discarded. Cancelling an upload does not guarantee that server-side processing has stopped.
+
+### Server conversion and request options
+
+HEIC, TIFF, and RAW conversion is opt-in. No image is uploaded unless the matching endpoint is configured:
+
+```js
+const controller = new AbortController();
+const result = await PixSqueeze.compress(file, {
+  targetSize: 500_000,
+  allowResize: true,
+  conversion: {
+    heic: '/api/convert/heic',
+    tiff: '/api/convert/tiff',
+    raw: '/api/convert/raw',
+    // headers: { Authorization: 'Bearer YOUR_TOKEN' },
+    // credentials: 'include',
+  },
+  signal: controller.signal,
+});
+
+// Call controller.abort() from a cancel button while processing is pending.
+```
+
+RAW detection uses filename/MIME/header hints; successful conversion depends on the server's installed decoder and the camera format. RAW filenames take precedence over a shared TIFF signature when choosing a configured endpoint. Server conversion happens once, followed by browser encoding attempts. It currently produces an intermediate JPEG at quality 95; browser options such as `targetSize` are not forwarded as server options. This is separate from the hosted Batch API.
+
+Existing direct conversion helpers retain their optional endpoint argument and accept a third request-options argument:
+
+```js
+import { convertHeicOnServer } from '@alosha/pixsqueeze/heic';
+
+const controller = new AbortController();
+const jpeg = await convertHeicOnServer(file, '/api/convert/heic', {
+  signal: controller.signal,
+  headers: { Authorization: 'Bearer YOUR_TOKEN' },
+  credentials: 'include',
+});
+```
+
+The same signature applies to `convertTiffOnServer` and `convertRawOnServer`. Let the browser set the multipart `Content-Type` boundary. Direct helpers do not add their own timeout; use an abort signal or the static API's total timeout. Cross-origin headers/credentials also require a matching server CORS policy; the bundled server defaults to a public, credential-free CORS configuration.
 
 [⬆ back to top](#table-of-contents)
 
@@ -64,9 +194,20 @@ That's the whole API surface for the common case — pick a quality between `0` 
 dist/
 ├── pixsqueeze.js        (UMD)
 ├── pixsqueeze.min.js    (UMD, compressed)
-├── pixsqueeze.common.js (CommonJS, default)
-└── pixsqueeze.esm.js    (ES Module)
+├── pixsqueeze.common.js (CommonJS require entry)
+├── pixsqueeze.esm.mjs   (native ESM import entry)
+├── pixsqueeze.esm.js    (legacy bundler entry)
+├── heic.*              (HEIC detection and conversion helpers)
+├── tiff.*              (TIFF detection and conversion helpers)
+└── raw.*               (RAW detection and conversion helpers)
+types/
+├── index.d.ts          (shared class and option declarations)
+├── index.d.mts         (ESM declaration entry)
+├── index.d.cts         (CommonJS declaration entry)
+└── {heic,tiff,raw}.d.ts (helper declarations)
 ```
+
+Import through `@alosha/pixsqueeze` or the `/heic`, `/tiff`, and `/raw` subpaths. Package exports select the matching JavaScript and declaration entry. The npm package includes `src/`, `dist/`, and `types/`; the demo server and playground are repository-only.
 
 ## Getting started
 
@@ -81,14 +222,15 @@ npm install @alosha/pixsqueeze
 #### Syntax
 
 ```js
-new PixSqueeze(file[, options])
+new PixSqueeze(file, options); // options is optional
+await PixSqueeze.compress(file, asyncOptions); // asyncOptions is optional
 ```
 
 **file**
 
 - Type: [`File`](https://developer.mozilla.org/en-US/docs/Web/API/File) or [`Blob`](https://developer.mozilla.org/en-US/docs/Web/API/Blob)
 
-The target image file for compressing.
+The target image `File` or `Blob`. Ordinary browser compression requires a decodable image with an image MIME type; set `type` when constructing a Blob yourself. Special-format helpers also inspect filename/header hints before a configured server conversion.
 
 **options**
 
@@ -121,10 +263,10 @@ document.getElementById("file").addEventListener("change", (e) => {
     success(result) {
       const formData = new FormData();
 
-      // The third parameter is required for server
+      // Supply a filename explicitly when uploading a Blob.
       formData.append("file", result, result.name);
 
-      // Send the compressed image file to server with XMLHttpRequest.
+      // Send the compressed image to your upload endpoint with fetch.
       fetch("/path/to/upload", { method: "POST", body: formData });
     },
     error(err) {
@@ -133,6 +275,21 @@ document.getElementById("file").addEventListener("change", (e) => {
   });
 });
 ```
+
+### TypeScript
+
+```ts
+import PixSqueeze from '@alosha/pixsqueeze';
+
+const options: PixSqueeze.AsyncOptions = {
+  mimeType: 'image/jpeg',
+  targetSize: 500_000,
+  allowResize: true,
+};
+const result: PixSqueeze.CompressionResult = await PixSqueeze.compress(file, options);
+```
+
+CommonJS TypeScript consumers can use `import PixSqueeze = require('@alosha/pixsqueeze')`; CommonJS JavaScript consumers use `const PixSqueeze = require('@alosha/pixsqueeze')`. ESM and bundler consumers use the default import shown above. Available types are `PixSqueeze.Options`, `PixSqueeze.AsyncOptions`, `PixSqueeze.ConversionOptions`, and `PixSqueeze.CompressionResult`. `PixSqueeze.noConflict()` returns the constructor, so it can be saved under another name. Imports do not make the canvas compressor a Node.js or worker image encoder; compression still needs a browser DOM.
 
 [⬆ back to top](#table-of-contents)
 
@@ -189,23 +346,23 @@ new PixSqueeze(file, {
 
 ### Convert to WebP or JPEG
 
-Force the output format regardless of the input — handy for standardizing what your server stores.
+Request an output format supported by the current browser — useful for standardizing uploads.
 
 ```js
 new PixSqueeze(file, {
   mimeType: "image/webp", // or "image/jpeg", "image/png", "auto"
   quality: 0.75,
-  success: (result) => console.log(result.type), // "image/webp"
+  success: (result) => console.log(result.type), // inspect the actual encoder result
 });
 ```
 
-> **Note:** Safari cannot encode to WebP via canvas. If you need guaranteed WebP output across all browsers, convert on the server instead.
+> **Note:** Encoder support varies by browser. Canvas can fall back to PNG when the requested format is unavailable. Inspect `result.type`, or `result.mimeType` with the static API. Use a configured server encoder when an exact output format is required.
 
 ### Compress an iPhone HEIC photo
 
-Browsers can't decode HEIC/HEIF — the format iPhones save photos in by default. The conversion happens on a server: detect the format in the browser, POST the file to a conversion endpoint, then hand the returned JPEG to the client-side compressor.
+For a consistent HEIC/HEIF workflow, detect the format in the browser, POST it to an explicitly configured conversion endpoint, then compress the returned JPEG. Browser decoding support alone does not guarantee canvas encoding support.
 
-> **You need to run the conversion endpoint yourself.** The npm package ships the browser-side helpers only. The Express server that implements `/api/convert/heic`, `/api/convert/tiff` and `/api/convert/raw` lives in [`server/`](https://github.com/avlisodraude/compressorjs/tree/main/server) in this repository — clone it and deploy it, or point the helpers at your own endpoint via their second argument. There is no hosted endpoint bundled with the package.
+> **You need to run the conversion endpoint yourself.** The npm package ships the browser-side compressor and conversion helpers. The Express server that implements `/api/convert/heic`, `/api/convert/tiff` and `/api/convert/raw` lives in [`server/`](server/) in this repository. Deploy it yourself or configure your own compatible endpoints. The hosted Batch API has a separate interface.
 
 ```js
 import PixSqueeze from "@alosha/pixsqueeze";
@@ -226,7 +383,7 @@ async function handleFile(file) {
 
 ### Compress a TIFF or camera RAW file
 
-Same idea as HEIC — these formats aren't readable by `<canvas>`, so they're routed through a `/api/convert/tiff` or `/api/convert/raw` endpoint first. Each format has its own subpath import.
+The server-assisted workflow also supports TIFF and detected camera RAW inputs when the installed decoder can process them. Use `conversion.tiff`/`conversion.raw` with `PixSqueeze.compress()`, or the individual subpath helpers shown below.
 
 ```js
 import PixSqueeze from "@alosha/pixsqueeze";
@@ -246,11 +403,13 @@ if (await isRawFile(rawFile)) {
 }
 ```
 
-Each `convert*OnServer` helper takes an optional second argument to override the endpoint, so you can point it at wherever you deployed the server:
+Each `convert*OnServer` helper takes an optional second argument to override the endpoint and a third argument for `signal`, `headers`, and `credentials`:
 
 ```js
 const jpeg = await convertRawOnServer(rawFile, "https://images.example.com/convert/raw");
 ```
+
+See [server conversion and request options](#server-conversion-and-request-options) for the shared request-options contract. An affirmative detector result identifies a candidate format; it does not prove that the server can decode that camera's file.
 
 ### Add a watermark while compressing
 
@@ -286,6 +445,8 @@ new PixSqueeze(file, {
 
 Useful when the user picks a new file before the previous compression finishes, or navigates away.
 
+For `PixSqueeze.compress()`, pass an `AbortSignal` as shown under [cancellation and timeouts](#cancellation-and-timeouts). The instance method below belongs to the callback API.
+
 ```js
 const job = new PixSqueeze(file, {
   success: (result) => console.log(result),
@@ -307,15 +468,18 @@ An Express development server lives under `server/` **in this repository**. It s
 ### Start the server
 
 ```shell
+npm ci
+npm run build
 npm run server
 ```
 
-Opens at `http://localhost:3000` by default. Set the `PORT` environment variable to override.
+Open `http://localhost:3000` after running `npm run build` and `npm run server`. Set the `PORT` environment variable to override. The root serves a self-contained local playground with quality, dimensions, target size, cancellation, previews, and downloads. It uses the local conversion endpoints only when the upload checkbox is enabled. No CDN or hosted demo is required. The separate `docs/index.html` remains a redirect for static hosting.
 
 Environment variables:
 
 | Variable                 | Default | Purpose                                                     |
 | ------------------------ | ------- | ------------------------------------------------------------ |
+| `PORT`                   | `3000`  | Local server port; for example, `PORT=4173 npm run server`. |
 | `CORS_ORIGIN`             | `*`     | Allowed origin(s) for the conversion API. Comma-separate for multiple. Pin this in production. |
 | `MAX_UPLOAD_MB`           | `100`   | Per-upload size ceiling.                                     |
 | `UPLOAD_CONCURRENCY`      | `6`     | Max requests holding an upload buffer in memory at once.     |
@@ -331,15 +495,15 @@ Environment variables:
 | `cors`               | Cross-origin access to the conversion API                   |
 | `express-rate-limit` | Per-IP request limiting on the conversion endpoints         |
 | `multer`             | Multipart file upload handling (see `MAX_UPLOAD_MB`)        |
-| `sharp`              | TIFF and RAW → JPEG conversion via libvips                  |
-| `heic-convert`       | HEIC/HEIF → JPEG conversion (runs in a fixed worker pool)    |
+| `sharp`              | JPEG encoding and supported TIFF/RAW decoding via libvips   |
+| `heic-convert`       | HEIC/HEIF → PNG decoding in a fixed worker pool; Sharp then encodes JPEG |
 | `compression`        | Gzip/Brotli for static assets and JSON responses             |
 
 [⬆ back to top](#table-of-contents)
 
 ## Server-side conversion API
 
-Browsers cannot natively decode HEIC, TIFF, or camera RAW files. The demo app sends these formats to the server, converts them to JPEG, and then feeds the result to the client-side compressor.
+These repository-only endpoints provide server-assisted conversion. The local playground uses them only when its upload checkbox is enabled; `PixSqueeze.compress()` uses only endpoints explicitly configured by the caller. The callback constructor never uploads an image by itself.
 
 All endpoints accept a `multipart/form-data` POST with a single field named `file` and respond with:
 
@@ -352,7 +516,7 @@ All endpoints accept a `multipart/form-data` POST with a single field named `fil
 
 ### `POST /api/convert/heic`
 
-Converts a HEIC/HEIF image to JPEG at quality 95. Detection is done by MIME type **and** ISO Base Media File Format magic bytes, so iOS files with an empty MIME type are handled correctly. Conversion runs in a dedicated worker thread to avoid blocking the Node.js event loop.
+Converts a HEIC/HEIF image to JPEG at quality 95. A matching MIME type **or** ISO Base Media File Format header is accepted, including files with an empty MIME type. HEIC decoding runs in a worker pool, followed by Sharp JPEG encoding. Both `.heic` and `.heif` filenames receive a `.jpg` output extension.
 
 ```shell
 curl -X POST http://localhost:3000/api/convert/heic \
@@ -362,7 +526,7 @@ curl -X POST http://localhost:3000/api/convert/heic \
 
 ### `POST /api/convert/tiff`
 
-Converts a TIFF image (including multi-page TIFFs) to JPEG at quality 95. Detection uses MIME type, `.tiff`/`.tif` file extension, and little/big-endian magic bytes.
+Converts a TIFF image to JPEG at quality 95. A matching MIME type, `.tiff`/`.tif` extension, or little/big-endian header is accepted. For multi-page TIFF input, the current endpoint converts the first page; it does not return a page collection.
 
 ```shell
 curl -X POST http://localhost:3000/api/convert/tiff \
@@ -372,7 +536,7 @@ curl -X POST http://localhost:3000/api/convert/tiff \
 
 ### `POST /api/convert/raw`
 
-Converts camera RAW files to JPEG at quality 95. Automatically applies embedded orientation metadata. Supported formats:
+Attempts camera RAW conversion to JPEG at quality 95 and applies embedded orientation metadata. The following extensions are recognized for routing; actual conversion depends on the installed decoder and camera variant:
 
 | Format    | Extensions                                     |
 | --------- | ---------------------------------------------- |
@@ -387,7 +551,7 @@ Converts camera RAW files to JPEG at quality 95. Automatically applies embedded 
 | Samsung   | `.srw`                                         |
 | Other     | `.3fr`, `.dcr`, `.kdc`, `.mrw`, `.rwl`, `.x3f` |
 
-> **Note:** RAF and RW2 conversion requires the `sharp` binary to be built with LibRaw support. If your installed binary does not include it, the endpoint returns a `422` with a clear error message.
+> **Note:** Recognizing a RAW extension or TIFF container is not a guarantee of camera RAW decoding. Some variants require a libvips build with LibRaw support. Unsupported or corrupt inputs return `422`. Validate representative camera fixtures against your deployment before promising support.
 
 ```shell
 curl -X POST http://localhost:3000/api/convert/raw \
@@ -398,6 +562,8 @@ curl -X POST http://localhost:3000/api/convert/raw \
 [⬆ back to top](#table-of-contents)
 
 ## Batch API
+
+This is a separate hosted service. The static `PixSqueeze.compress()` API, its target-size settings, and the local `/api/convert/*` endpoints are implemented in this repository; they do not establish support for equivalent options in the hosted service.
 
 Need to compress hundreds or thousands of images server-side — without a browser? The **PixSqueeze Batch API** is a hosted REST API that accepts up to 1,000 images per request and returns compressed results as base64-encoded files.
 
@@ -537,8 +703,7 @@ curl https://pixsqueeze-api-production.up.railway.app/usage \
 
 ## Options
 
-You may set compressor options with `new PixSqueeze(file, options)`.
-If you want to change the global default options, You may use `PixSqueeze.setDefaults(options)`.
+The ordinary compression options below apply to the constructor and to `PixSqueeze.compress()`, except the `success`/`error` callbacks. See [asynchronous compression and target sizes](#asynchronous-compression-and-target-sizes) for the static API's additional options. Use `PixSqueeze.setDefaults(options)` to change shared ordinary defaults; the target-search, conversion, cancellation, and timeout controls are per-call static options.
 
 ### strict
 
@@ -567,14 +732,14 @@ Indicates whether to read the image's Exif Orientation value (JPEG image only), 
 
 - Don't trust this all the time as some JPEG images have incorrect (not standard) Orientation values.
 - If the size of the target image is too large (e.g., greater than 10 MB), you should disable this option to avoid an out-of-memory crash.
-- The image's Exif information will be removed after compressed, so if you need the Exif information, you may need to upload the original image as well.
+- Re-encoding removes EXIF unless `retainExif` is enabled for JPEG output. A fallback to the original file can preserve its original metadata.
 
 ### retainExif
 
 - Type: `boolean`
 - Default: `false`
 
-Indicates whether to retain the image's Exif information after compressed.
+For JPEG input/output, indicates whether to reinsert the source EXIF after encoding. `false` skips reinsertion; it does not strip metadata from an original file returned by `strict` or canvas fallback. When targeting a size, retained EXIF counts toward the returned output size.
 
 ### maxWidth
 
@@ -635,13 +800,15 @@ Sets how the size of the image should be resized to the container specified by t
 - Type: `number`
 - Default: `0.8`
 
-The quality of the output image. It must be a number between `0` and `1`. If this argument is anything else, the default values `0.92` and `0.80` are used for `image/jpeg` and `image/webp` respectively. Other arguments are ignored. Be careful to use `1` as it may make the size of the output image become larger.
+The quality of the output image, from `0` to `1`. The callback API passes its value to the browser encoder, which can use its own default for invalid input. The static API validates the range and rejects invalid values. With a target size, this is the initial quality and upper search bound. `1` can enlarge an image and is not a promise of lossless output.
 
 **Note:** This option only available for `image/jpeg` and `image/webp` images.
 
 > Check out the documentation of the [HTMLCanvasElement.toBlob()](https://developer.mozilla.org/en-US/docs/Web/API/HTMLCanvasElement/toBlob) method for more detail.
 
 **Examples**:
+
+The following quality/size measurements are illustrative results for an earlier sample. They are not cross-browser guarantees or a calibration for `targetSize`.
 
 | Quality | Input size | Output size | Compression ratio | Description   |
 | ------- | ---------- | ----------- | ----------------- | ------------- |
@@ -661,7 +828,7 @@ The quality of the output image. It must be a number between `0` and `1`. If thi
 
 The mime type of the output image. By default, the original mime type of the source image file will be used.
 
-> **Note:** Safari does not support `mimeType` conversion to `"image/webp"`. For more details, see the [browser compatibility of the `HTMLCanvasElement.toBlob()` method](https://developer.mozilla.org/en-US/docs/Web/API/HTMLCanvasElement/toBlob#browser_compatibility).
+> Encoder availability varies by browser. An unavailable encoder can fall back to PNG. Inspect the returned MIME type rather than assuming the requested format was produced.
 
 ### convertTypes
 
@@ -700,6 +867,8 @@ Files whose file type is included in the `convertTypes` list, and whose file siz
 
 The hook function to execute before drawing the image into the canvas for compression.
 
+With target-size compression, the hook can run once per encoding attempt. Draw from the provided canvas/input rather than accumulating changes on a previous compressed result.
+
 ```js
 new PixSqueeze(file, {
   beforeDraw(context, canvas) {
@@ -720,6 +889,8 @@ new PixSqueeze(file, {
 
 The hook function to execute after drawing the image into the canvas for compression.
 
+With target-size compression, the hook can run once per encoding attempt. A thrown drawing error rejects the static API's Promise.
+
 ```js
 new PixSqueeze(file, {
   drew(context, canvas) {
@@ -737,7 +908,7 @@ new PixSqueeze(file, {
 - Parameters:
   - `result`: The compressed image (a `File` (**read only**) or `Blob` object).
 
-The hook function to execute when successful to compress the image.
+Callback constructor only. `PixSqueeze.compress()` resolves with a result object whose `file` field contains this output.
 
 ### error(err)
 
@@ -746,15 +917,19 @@ The hook function to execute when successful to compress the image.
 - Parameters:
   - `err`: The compression error (an `Error` object).
 
-The hook function executes when fails to compress the image.
+Callback constructor only. `PixSqueeze.compress()` rejects on validation, decoding, conversion, drawing, cancellation, or timeout failures. An unmet byte target resolves with `targetMet: false` instead of rejecting.
 
 [⬆ back to top](#table-of-contents)
 
 ## Methods
 
+### PixSqueeze.compress(file, options)
+
+Static Promise API for local compression, target-size search, and explicitly configured server conversion. See [asynchronous compression and target sizes](#asynchronous-compression-and-target-sizes) for options and [result fields](#result-fields) for its return value. It does not return an instance with `.abort()`; pass an `AbortSignal` instead.
+
 ### abort()
 
-Abort the compression process.
+Abort a callback constructor instance. It suppresses late encoding success and invokes the error callback; it cannot interrupt a browser encoder that is already running.
 
 ```js
 const compressor = new PixSqueeze(file);
@@ -771,18 +946,35 @@ If you have to use another compressor with the same namespace, just call the `Pi
 <script src="other-compressor.js"></script>
 <script src="pixsqueeze.js"></script>
 <script>
-  PixSqueeze.noConflict();
+  const MyPixSqueeze = PixSqueeze.noConflict();
   // Code that uses other `PixSqueeze` can follow here.
+  // Use MyPixSqueeze for this library, including MyPixSqueeze.compress().
 </script>
 ```
 
 ## Browser support
 
-- Chrome (latest)
-- Firefox (latest)
-- Safari (latest)
-- Opera (latest)
-- Edge (latest)
+Use a modern browser with canvas encoding, `File`/`Blob`, object URLs, and `FileReader`. The static API additionally uses Promises, `Blob.arrayBuffer()`, `AbortController`, and `DOMException`; configured conversion requires `fetch` and `FormData`. The [local playground](docs/local.html) runs from the Node demo server, not directly from a `file://` URL.
+
+Supported encoders, canvas size limits, and output quality vary by browser. The automated browser suite uses Puppeteer-managed headless Chrome; it does not establish Firefox, Safari, Edge, mobile-device, or hosted-service acceptance. Test those environments for your application.
+
+## Development and verification
+
+Use Node.js 24, matching CI, and install the lockfile with `npm ci`. Install the test browser once with `npx puppeteer browsers install chrome`. The published package has no runtime npm dependencies; the repository's conversion server still uses packages listed under `devDependencies`.
+
+| Command | Purpose |
+| --- | --- |
+| `npm run build` | Generate UMD, CommonJS, ESM `.mjs`/legacy `.js`, and helper bundles. |
+| `npm run dev` / `npm start` | Watch source changes and rebuild bundles; does not start the HTTP server. |
+| `npm run server` | Serve the local playground and conversion routes. |
+| `npm run lint` | Lint JavaScript and CSS, applying configured automatic fixes. |
+| `npm test` | Build and run the browser regression suite in headless Chrome. |
+| `npm run test:types` | Check ESM/CommonJS/bundler declarations and runtime package imports against existing builds. |
+| `npm run test:server` | Check conversion, HEIF filenames, upload errors, CORS, rate limiting, and local/static demo routing. |
+| `npm run test:demo` | Build and check browser targets, HEIC/TIFF uploads, downloads, responsive layout, cancellation, and unmet targets. |
+| `npm run release` | Clean, lint, build through the test scripts, and run all four test suites; does not publish or deploy. |
+
+See the [contributor guide](.github/CONTRIBUTING.md#development-setup-and-verification) for source layout, test ownership, dependency-audit guidance, and packaging checks. The [documentation index](docs/README.md) links the runnable browser and hosted-service examples.
 
 ## Contributing
 

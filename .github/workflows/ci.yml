@@ -16,11 +16,14 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: 24
-      - run: npm install
+      - run: npm ci
       - run: npx puppeteer browsers install chrome
       - run: npm run lint
       - run: npm run build
       - run: npm test
+      - run: npm run test:types
+      - run: npm run test:server
+      - run: npm run test:demo
       - uses: codecov/codecov-action@v6
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}

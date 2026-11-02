@@ -14,7 +14,8 @@ export default {
   checkOrientation: true,
 
   /**
-   * Indicates if retain the image's Exif information after compressed.
+   * Reinsert source EXIF into re-encoded JPEG output. False skips reinsertion;
+   * an original file returned by strict/canvas fallback can retain its metadata.
    * @type {boolean}
   */
   retainExif: false,

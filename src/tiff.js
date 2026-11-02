@@ -1,3 +1,5 @@
+import convert from './convert';
+
 /**
  * TIFF client-side utilities
  *
@@ -5,7 +7,7 @@
  * passing the result to PixSqueeze.js.
  *
  * Usage:
- *   import { isTiffFile, convertTiffOnServer } from './tiff.js';
+ *   import { isTiffFile, convertTiffOnServer } from '@alosha/pixsqueeze/tiff';
  *
  *   async function handleFile(file) {
  *     if (await isTiffFile(file)) {
@@ -52,31 +54,17 @@ export async function isTiffFile(file) {
 /**
  * Upload a TIFF file to the server conversion endpoint and get back a
  * standard JPEG File object ready to pass into PixSqueeze.js.
+ * The bundled endpoint returns the first page of multi-page TIFF input.
  *
  * @param {File|Blob} file - The TIFF file to convert.
  * @param {string} [endpoint='/api/convert/tiff'] - Override the server URL if needed.
+ * @param {Object} [options={}] - Fetch request options; no timeout is added here.
+ * @param {AbortSignal} [options.signal] - Cancel the upload or response read.
+ * @param {HeadersInit} [options.headers] - Request headers; omit multipart Content-Type.
+ * @param {RequestCredentials} [options.credentials] - Fetch credentials policy.
  * @returns {Promise<File>} A JPEG File with the same base name as the original.
  * @throws {Error} If the network request fails or the server returns an error.
  */
-export async function convertTiffOnServer(file, endpoint = '/api/convert/tiff') {
-  const form = new FormData();
-  form.append('file', file);
-
-  const res = await fetch(endpoint, { method: 'POST', body: form });
-
-  if (!res.ok) {
-    let message = `Server responded ${res.status}`;
-    try {
-      const json = await res.json();
-      if (json.error) message = json.error;
-    } catch (e) { /* response was not JSON */ }
-    throw new Error(`TIFF conversion failed: ${message}`);
-  }
-
-  const blob = await res.blob();
-  const serverName = res.headers.get('X-Original-Name');
-  const originalName = file.name || 'image.tiff';
-  const outputName = serverName || originalName.replace(/\.tiff?$/i, '.jpg');
-
-  return new File([blob], outputName, { type: 'image/jpeg' });
+export async function convertTiffOnServer(file, endpoint = '/api/convert/tiff', options = {}) {
+  return convert(file, endpoint, 'tiff', options);
 }

@@ -1,4 +1,5 @@
 import DEFAULTS from './defaults';
+import compress from './compress';
 import { WINDOW } from './constants';
 import {
   arrayBufferToDataURL,
@@ -119,18 +120,22 @@ export default class PixSqueeze {
     const { file, image } = this;
 
     image.onload = () => {
-      if (isCanvasAvailable()) {
-        this.draw({
-          ...data,
-          naturalWidth: image.naturalWidth,
-          naturalHeight: image.naturalHeight,
-        });
-      } else {
-        this.done({
-          naturalWidth: image.naturalWidth,
-          naturalHeight: image.naturalHeight,
-          result: null,
-        });
+      try {
+        if (isCanvasAvailable()) {
+          this.draw({
+            ...data,
+            naturalWidth: image.naturalWidth,
+            naturalHeight: image.naturalHeight,
+          });
+        } else {
+          this.done({
+            naturalWidth: image.naturalWidth,
+            naturalHeight: image.naturalHeight,
+            result: null,
+          });
+        }
+      } catch (error) {
+        this.fail(error);
       }
     };
     image.onabort = () => {
@@ -233,6 +238,8 @@ export default class PixSqueeze {
 
     canvas.width = width;
     canvas.height = height;
+    this.outputWidth = width;
+    this.outputHeight = height;
 
     if (!isImageType(options.mimeType)) {
       options.mimeType = file.type;
@@ -326,6 +333,8 @@ export default class PixSqueeze {
         )
       ) {
         result = file;
+        this.outputWidth = naturalWidth;
+        this.outputHeight = naturalHeight;
       } else {
         const fileName = (file.name && result.type !== file.type)
           ? file.name.replace(REGEXP_EXTENSION, imageTypeToExtension(result.type))
@@ -338,6 +347,8 @@ export default class PixSqueeze {
     } else {
       // Returns original file if the result is null in some cases.
       result = file;
+      this.outputWidth = naturalWidth;
+      this.outputHeight = naturalHeight;
     }
 
     this.result = result;
@@ -349,6 +360,14 @@ export default class PixSqueeze {
 
   fail(err) {
     const { options } = this;
+
+    // Releasing a URL while an image is still loading can emit a late error.
+    // A failed or cancelled job must not call the error callback a second time.
+    this.image.onload = null;
+    this.image.onerror = null;
+    if (this.image.src.startsWith('blob:')) {
+      URL.revokeObjectURL(this.image.src);
+    }
 
     if (options.error) {
       options.error.call(this, err);
@@ -387,5 +406,24 @@ export default class PixSqueeze {
    */
   static setDefaults(options) {
     Object.assign(DEFAULTS, options);
+  }
+
+  /**
+   * Compress locally, optionally using explicitly configured conversion routes.
+   * The callback constructor remains independent of this Promise workflow.
+   * @param {File|Blob} file - Original input; conversion is opt-in per format.
+   * @param {Object} [options] - Ordinary options, excluding success/error, plus:
+   * @param {number} [options.targetSize] - Positive integer byte target (best effort).
+   * @param {number} [options.maxAttempts=8] - Total encoding budget, from 1 to 20.
+   * @param {number} [options.minQuality=0.4] - Lower search bound, from 0 to 1.
+   * @param {boolean} [options.allowResize=false] - Allow smaller dimensions.
+   * @param {Object} [options.conversion] - heic/tiff/raw endpoint URLs and request options.
+   * @param {AbortSignal} [options.signal] - Cancel the operation and discard late output.
+   * @param {number} [options.timeout=30000] - Total milliseconds; 0 disables the deadline.
+   * @returns {Promise<Object>} Output file, dimensions, sizes, targetMet, and attempt/conversion flags.
+   * An unmet target resolves with targetMet:false; processing failures reject.
+   */
+  static compress(file, options) {
+    return compress(PixSqueeze, file, options);
   }
 }

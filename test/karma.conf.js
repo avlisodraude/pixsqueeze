@@ -37,11 +37,19 @@ module.exports = async (config) => {
   config.set({
     autoWatch: false,
     basePath: '..',
+    hostname: '127.0.0.1',
+    listenAddress: '127.0.0.1',
     browsers: ['ChromeHeadlessNoSandbox'],
     customLaunchers: {
       ChromeHeadlessNoSandbox: {
-        base: 'ChromeHeadless',
-        flags: ['--no-sandbox'],
+        // Use the same maintained headless flags as the playground checks,
+        // including mock keychain access on macOS.
+        base: 'Chrome',
+        flags: [
+          ...(await puppeteer.defaultArgs({ headless: true })).filter((arg) => arg !== 'about:blank'),
+          '--no-sandbox',
+          '--remote-debugging-port=0',
+        ],
       },
     },
     client: {
@@ -50,7 +58,9 @@ module.exports = async (config) => {
       },
     },
     files: [
-      'src/index.js',
+      // Load the public UMD build for the callback and static Promise APIs.
+      // ES module specs are independently bundled below.
+      'dist/pixsqueeze.js',
       'test/helpers.js',
       'test/specs/**/*.spec.js',
       {
@@ -64,7 +74,6 @@ module.exports = async (config) => {
       { 'preprocessor:rollup': ['factory', createRollupPreprocessor] },
     ],
     preprocessors: {
-      'src/index.js': ['rollup'],
       'test/helpers.js': ['rollup'],
       'test/specs/**/*.spec.js': ['rollup'],
     },

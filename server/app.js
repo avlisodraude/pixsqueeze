@@ -346,7 +346,7 @@ function sanitizeHeaderFilename(name) {
  * POST /api/convert/heic
  *
  * Accepts a multipart upload with field name `file`.
- * Validates that the payload is a HEIC/HEIF image (by MIME type or magic bytes),
+ * Accepts HEIC/HEIF candidates by MIME type or magic bytes,
  * converts it to JPEG at quality 95, and streams the result back.
  *
  * Response headers:
@@ -382,7 +382,7 @@ app.post('/api/convert/heic', async (req, res) => {
       const pngBuffer = await heicConvertInWorker(buffer);
       const outputBuffer = await sharpToJpeg(pngBuffer);
 
-      const outputName = sanitizeHeaderFilename((originalname || 'image.heic').replace(/\.heic$/i, '.jpg'));
+      const outputName = sanitizeHeaderFilename((originalname || 'image.heic').replace(/(?:\.hei[cf])?$/i, '.jpg'));
 
       res.set({ 'Content-Type': 'image/jpeg', 'X-Original-Name': outputName, 'Content-Length': outputBuffer.byteLength });
       return res.send(outputBuffer);
@@ -452,11 +452,10 @@ app.post('/api/convert/tiff', async (req, res) => {
  * Accepts a camera RAW image (DNG, CR2, CR3, NEF, ARW, RAF, RW2, PEF, ORF …)
  * and returns a JPEG at quality 95.
  *
- * DNG / CR2 / NEF / ARW / PEF / ORF all use the TIFF container so they are
- * handled by libvips/sharp without additional codecs.  RAF and RW2 have their
- * own container formats and require the libvips build to include LibRaw; sharp
- * will return a 422 with a clear error message if they are not supported by
- * the installed binary.
+ * A recognized extension or TIFF container is only a routing hint, not proof
+ * of camera RAW decoder support. Conversion depends on the installed libvips
+ * codecs (and LibRaw where required) and the specific camera variant. Sharp
+ * returns a 422 when the installed decoder cannot process the input.
  */
 app.post('/api/convert/raw', async (req, res) => {
   await uploadSem.acquire();
@@ -511,6 +510,11 @@ app.post('/api/convert/raw', async (req, res) => {
 // content a static host would serve, not user data.
 // Static assets (JS/CSS/HTML) are cached for 1 hour in the browser; this avoids
 // re-fetching compressor.js on every demo reload.
+// The static-host index remains a redirect. Local runs use a self-contained
+// playground whose conversion requests stay on this server.
+app.get('/', (_req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'docs', 'local.html'));
+});
 app.use(express.static(path.join(__dirname, '..', 'docs'), {
   maxAge: '1h',
   etag: true,

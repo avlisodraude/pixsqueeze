@@ -27,6 +27,11 @@ const helperConfigs = helperModules.map((mod) => ({
     },
     {
       banner,
+      file: `dist/${mod}.esm.mjs`,
+      format: 'esm',
+    },
+    {
+      banner,
       file: `dist/${mod}.common.js`,
       format: 'cjs',
       exports: 'named',
@@ -53,6 +58,11 @@ module.exports = [
       {
         banner,
         file: `dist/${libName}.esm.js`,
+        format: 'esm',
+      },
+      {
+        banner,
+        file: `dist/${libName}.esm.mjs`,
         format: 'esm',
       },
       {

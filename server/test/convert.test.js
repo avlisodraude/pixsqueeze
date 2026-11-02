@@ -27,6 +27,14 @@ test('POST /api/convert/heic rejects a PNG with 415 instead of converting it', a
   assert.equal(res.status, 415);
 });
 
+test('POST /api/convert/heic names HEIF output as a JPEG', async () => {
+  const res = await request(app)
+    .post('/api/convert/heic')
+    .attach('file', fixture('sample.heic'), 'sample.HEIF');
+  assert.equal(res.status, 200);
+  assert.equal(res.headers['x-original-name'], 'sample.jpg');
+});
+
 test('POST /api/convert/tiff returns a JPEG (magic bytes)', async () => {
   const res = await request(app)
     .post('/api/convert/tiff')

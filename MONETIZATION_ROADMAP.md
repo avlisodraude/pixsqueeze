@@ -2,6 +2,20 @@
 
 > Note: superseded in part by the Alosha Studio roadmap. PixSqueeze is now an Alosha product at pixsqueeze.alosha.dev.
 
+## Implementation status — November 2, 2026
+
+The current working tree adds the following to the open-source package and repository demo:
+
+- `PixSqueeze.compress(file, options)` with Promise results, byte-size targets, bounded quality search, optional resizing, cancellation, and timeouts.
+- Explicit HEIC/TIFF/RAW conversion endpoints and request options; ordinary supported image processing stays in the browser. RAW conversion depends on installed codecs.
+- TypeScript declarations and native ESM/CommonJS package entries, with the callback constructor retained.
+- A local playground with previews, downloads, target feedback, and opt-in server uploads.
+- Browser, server, package-consumer, and playground verification in the local release command and CI configuration.
+
+See the [README](README.md) and [1.5.0 changelog](CHANGELOG.md) for the implemented contracts. The 1.5.0 release covers the package and repository demo; hosted-site deployment is verified separately. The batch service is a separate project; the new browser options do not establish its feature support.
+
+The original phases below are planning history. Their timelines, pricing, provider suggestions, and market assumptions are not current release commitments or verified service specifications.
+
 ## The Strategy in One Sentence
 
 Publish a free, open-source npm package for single-image compression (including HEIC/TIFF) to drive developer traffic, then convert them to a paid API for batch processing — with mobile apps as a later expansion.
@@ -14,8 +28,8 @@ Publish a free, open-source npm package for single-image compression (including 
 
 ### What to ship
 - Make the repo public on GitHub
-- Publish to npm as `pixsqueeze`
-- Single image compression: JPEG, PNG, WebP, TIFF, **HEIC** (your key differentiator)
+- Publish the scoped npm package as `@alosha/pixsqueeze`
+- Browser JPEG/PNG/WebP compression, plus explicit server-assisted TIFF/HEIC conversion and codec-dependent RAW handling
 - Browser-side JS + optional Node server for HEIC/TIFF
 
 ### What stays free forever
@@ -44,7 +58,7 @@ Publish a free, open-source npm package for single-image compression (including 
 |---|---|---|
 | Images at once | 1 | Up to 1,000 |
 | Formats | HEIC, TIFF, PNG, JPEG, WebP | Same + AVIF |
-| Processing | Client/server | Cloud (your server) |
+| Processing | Browser; explicitly configured conversion server for special formats | Separate hosted service |
 | Price | Free | Usage-based |
 
 ### Hosting (since you have no domain yet)
@@ -131,8 +145,8 @@ public        package        + billing       (React Native)
 
 ## Competitive Positioning
 
-Your headline should always be:
+Suggested positioning aligned with the repository implementation:
 
-> **The only image compression library that handles HEIC natively — in the browser and on the server.**
+> **Compress images in the browser, aim for an upload size, and use explicit server conversion for HEIC, TIFF, and supported RAW files.**
 
-That's true, specific, and hard to replicate quickly. Lean on it in the README, npm description, and any future landing page.
+Avoid claiming exclusive market support or native browser HEIC decoding. Describe the upload boundary, optional server dependency, and codec limits consistently with the README.

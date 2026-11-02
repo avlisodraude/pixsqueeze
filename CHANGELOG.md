@@ -1,5 +1,24 @@
 # Changelog
 
+## Unreleased
+
+No unreleased changes.
+
+## 1.5.0 (Nov 2, 2026)
+
+- Fix package TypeScript declarations for ESM, CommonJS, and bundler consumers.
+- Add native `.esm.mjs` import entries and matching `.d.mts`/`.d.cts` declarations while retaining legacy bundles. Correct the constructor return type of `noConflict()`.
+- Serve a self-contained local playground at the demo server root while keeping the static-host redirect.
+- Add `PixSqueeze.compress()` with Promise results, explicit server conversion endpoints, cancellation, and timeouts.
+- Add bounded target-size compression with optional dimension reduction and an explicit `targetMet` result.
+- Return output bytes, actual MIME type, dimensions, encoding attempts, server-conversion status, and original-file fallback information from the static API. Targets use bytes and default to at most eight attempts; an unmet target returns the smallest result found rather than claiming success.
+- Allow request headers, credentials, and cancellation in the existing server conversion helpers.
+- Check browser flows, package types, and server behavior in CI.
+- Convert `.heif` filenames to `.jpg` on the HEIC endpoint and prevent late image errors from notifying cancelled jobs twice.
+- Apply compatible dependency security updates, upgrade Sharp to the patched 0.35 line, and pin patched nested dependencies. Keep remaining tooling audit findings distinct from server-path risk.
+- Configure Node.js globals for examples and align headless Chrome startup with Puppeteer defaults.
+- Refresh API/reference documentation, local examples, contribution/testing instructions, and the roadmap's implementation status. Includes release validation before the tag-triggered npm publication.
+
 ## 1.3.4 (Jun 14, 2026)
 
 - Remove server-only packages (`express`, `sharp`, `multer`, `heic-convert`, `compression`) from runtime `dependencies` — they are used only by the local demo `server/` and are now `devDependencies`. The published browser library has **zero** runtime dependencies, which drops install size and clears the supply-chain alerts those transitive trees produced.
