@@ -14,6 +14,7 @@ We would love for you to contribute to PixSqueeze.js and help make it even bette
     - [Submitting a Pull Request (PR)](#submitting-a-pull-request-pr)
       - [After your pull request is merged](#after-your-pull-request-is-merged)
   - [Coding Rules](#coding-rules)
+  - [Development setup and verification](#development-setup-and-verification)
   - [Commit Message Guidelines](#commit-message-guidelines)
     - [Commit Message Format](#commit-message-format)
     - [Revert](#revert)
@@ -29,23 +30,15 @@ Help us keep PixSqueeze.js open and inclusive. Please read and follow our [Code 
 
 ## Question or Problem
 
-Do not open issues for general support questions as we want to keep GitHub issues for bug reports and feature requests. You've got much better chances of getting your question answered on [Stack Overflow](https://stackoverflow.com/questions/tagged/compressorjs) where the questions should be tagged with tag `compressorjs`.
-
-Stack Overflow is a much better place to ask questions since:
-
-- There are thousands of people willing to help on Stack Overflow.
-- Questions and answers stay available for public viewing so your question/answer might help someone else.
-- Stack Overflow's voting system assures that the best answers are prominently visible.
-
-To save you and our time, we will systematically close all issues that are requests for general support and redirect people to Stack Overflow.
+Start with the [API reference](../README.md) and [local documentation guide](../docs/README.md). For usage questions, use [PixSqueeze Discussions](https://github.com/avlisodraude/pixsqueeze/discussions). For a reproducible bug, use the issue form and include the installed package version, browser/runtime, whether you used the callback or Promise API, and relevant conversion/target-size options.
 
 ## Issues and Bugs
 
-If you find a bug in the source code, you can help us by [submitting an issue](#submitting-an-issue) to our [GitHub Repository](https://github.com/fengyuanchen/compressorjs). Even better, you can [submit a Pull Request](#submitting-a-pull-request-pr) with a fix.
+If you find a bug in the source code, you can help us by [submitting an issue](#submitting-an-issue) to our [GitHub Repository](https://github.com/avlisodraude/pixsqueeze). Even better, you can [submit a Pull Request](#submitting-a-pull-request-pr) with a fix.
 
 ## Feature Requests
 
-You can *request* a new feature by [submitting an issue](#submitting-an-issue) to our [GitHub Repository](https://github.com/fengyuanchen/compressorjs). If you would like to *implement* a new feature, please submit an issue with a proposal for your work first, to be sure that we can use it.
+You can *request* a new feature by [submitting an issue](#submitting-an-issue) to our [GitHub Repository](https://github.com/avlisodraude/pixsqueeze). If you would like to *implement* a new feature, please submit an issue with a proposal for your work first, to be sure that we can use it.
 
 Please consider what kind of change it is:
 
@@ -56,7 +49,7 @@ Please consider what kind of change it is:
 
 ### Submitting an Issue
 
-Before you submit an issue, please search the [issue tracker](https://github.com/fengyuanchen/compressorjs/issues), which may be an issue for your problem already exists and the discussion might inform you of workarounds readily available.
+Before you submit an issue, please search the [issue tracker](https://github.com/avlisodraude/pixsqueeze/issues), which may be an issue for your problem already exists and the discussion might inform you of workarounds readily available.
 
 We want to fix all the issues as soon as possible, but before fixing a bug we need to reproduce and confirm it. To reproduce bugs, we will systematically ask you to provide a minimal reproduction scenario using [CodePen](https://codepen.io/pen). Having a live, reproducible scenario gives us a wealth of important information without going back & forth to you with additional questions like:
 
@@ -70,14 +63,14 @@ We will be insisting on a minimal reproduction scenario to save maintainers time
 
 Unfortunately, we are not able to investigate/fix bugs without a minimal reproduction scenario, so if we don't hear back from you we are going to close an issue that doesn't have enough info to be reproduced.
 
-You can file new issues by filling out our [new issue form](https://github.com/fengyuanchen/compressorjs/issues/new).
+You can file new issues by filling out our [new issue form](https://github.com/avlisodraude/pixsqueeze/issues/new).
 
 ### Submitting a Pull Request (PR)
 
 Before you submit your Pull Request (PR) consider the following guidelines:
 
-1. Search [GitHub](https://github.com/fengyuanchen/compressorjs/pulls) for an open or closed PR that relates to your submission. You don't want to duplicate effort.
-1. Fork the **fengyuanchen/compressorjs** repo.
+1. Search [GitHub](https://github.com/avlisodraude/pixsqueeze/pulls) for an open or closed PR that relates to your submission. You don't want to duplicate effort.
+1. Fork the **avlisodraude/pixsqueeze** repo.
 1. Make your changes in a new git branch:
 
     ```shell
@@ -100,7 +93,7 @@ Before you submit your Pull Request (PR) consider the following guidelines:
     git push origin my-fix-branch
     ```
 
-1. In GitHub, send a pull request to `compressorjs:main`.
+1. In GitHub, send a pull request to `pixsqueeze:main`.
 1. If we suggest changes then:
     - Make the required updates.
     - Re-run the PixSqueeze.js test suites to ensure tests are still passing.
@@ -147,7 +140,47 @@ To ensure consistency throughout the source code, keep these rules in mind as yo
 
 - All features or bug fixes **must be tested** by one or more specs (unit-tests).
 - All public API methods **must be documented**.
-- We follow [Airbnb's JavaScript Style Guide](https://github.com/airbnb/javascript).
+- Follow the repository's ESLint and Stylelint configurations. `npm run lint` applies automatic fixes.
+
+## Development setup and verification
+
+Use Node.js 24, matching `.github/workflows/ci.yml`:
+
+```shell
+npm ci
+npx puppeteer browsers install chrome
+npm run build
+npm run server
+```
+
+Open `http://localhost:3000`. The server root serves `docs/local.html`; `docs/index.html` remains the static-host redirect. Enable the local playground's upload checkbox only when testing HEIC/TIFF/RAW conversion. Ordinary JPEG/PNG/WebP processing stays in the browser. RAW detection does not guarantee that the installed decoder supports a particular camera format.
+
+For source changes, run `npm run dev` in a second terminal to watch and rebuild. `npm start` starts that build watcher, not the HTTP server. Changing server source requires restarting the server.
+
+| Area | Owning files | Verification |
+| --- | --- | --- |
+| Callback API and canvas encoder | `src/index.js`, `src/defaults.js`, `src/utilities.js` | `npm test` |
+| Promise API and byte targets | `src/compress.js`, `test/specs/async.spec.js` | `npm test` |
+| Optional conversion transport | `src/convert.js`, `src/heic.js`, `src/tiff.js`, `src/raw.js` | Browser helper specs plus `npm run test:demo` |
+| Module exports and declarations | `package.json`, `rollup.config.js`, `types/`, `test/types.test.cjs` | `npm run build` then `npm run test:types` |
+| Conversion server | `server/`, `server/test/` | `npm run test:server` |
+| Local playground | `docs/local.html`, `docs/js/local-demo.js`, `docs/css/local-demo.css` | `npm run test:demo` |
+
+`npm test` rebuilds before running the public UMD bundle in Puppeteer-managed Chrome. `test:types` validates declarations and native package imports for ESM, CommonJS, and bundler consumers; it expects generated files to exist. `test:demo` rebuilds, opens a temporary local server, and exercises target downloads, explicit HEIC/TIFF conversion, cancellation, unmet targets, and narrow-viewport layout. It does not use the hosted API or API keys.
+
+Run `npm run release` for the complete local validation sequence: clean, lint, browser tests, type/runtime consumer checks, server tests, and playground tests. Despite its name, this command does not publish a package, push commits, or deploy a site. CI runs these checks on Node.js 24; local success is separate from a completed remote CI run or device/browser acceptance.
+
+When changing the Promise API:
+
+- Keep `new PixSqueeze(file, options)` and its callback/abort behavior compatible.
+- Keep target search bounded and use the same source for each attempt. An unmet target resolves with `targetMet: false`; failures reject.
+- Preserve the explicit conversion endpoint requirement and propagate cancellation through uploads and browser work.
+- Keep result fields and helper request options synchronized with declarations and the [README](../README.md).
+- Do not edit generated bundles directly. Rebuild them through Rollup, retaining legacy files alongside the native `.mjs` import entries.
+
+Before publishing, inspect the artifact with `npm pack --dry-run --ignore-scripts`. Package content includes `src/`, `dist/`, and `types/`, including `.d.mts`/`.d.cts` declaration entries; server and playground files stay repository-only. Update `CHANGELOG.md` under **Unreleased** until a release is actually prepared.
+
+For security maintenance, run `npm audit` against the full dependency tree. The browser package has no runtime dependencies, but the repository's server imports development dependencies, so `npm audit --omit=dev` would hide its dependency risks. Review compatible updates and overrides, then run release validation. Avoid blindly applying `npm audit fix --force`: proposed fixes can downgrade major build/test tools. Remaining audit findings must be assessed by affected code path; a clean production-only report is not server acceptance.
 
 ## Commit Message Guidelines
 
@@ -169,7 +202,7 @@ Any line of the commit message cannot be longer than 100 characters! This allows
 
 The footer should contain a [closing reference to an issue](https://help.github.com/articles/closing-issues-via-commit-messages/) if any.
 
-Here are some [samples](https://github.com/fengyuanchen/compressorjs/commits/main).
+Here are some [samples](https://github.com/avlisodraude/pixsqueeze/commits/main).
 
 ### Revert
 

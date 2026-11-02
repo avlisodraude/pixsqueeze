@@ -1,11 +1,11 @@
 /*!
- * PixSqueeze.js v1.4.1
+ * PixSqueeze.js v1.5.0
  * https://pixsqueeze.alosha.dev/demo
  *
  * Copyright 2018-present Eduardo Silva Navarrete
  * Released under the MIT license
  *
- * Date: 2026-07-09T14:52:42.316Z
+ * Date: 2026-11-02T13:02:53.886Z
  */
 var DEFAULTS = {
   /**
@@ -23,7 +23,8 @@ var DEFAULTS = {
   checkOrientation: true,
 
   /**
-   * Indicates if retain the image's Exif information after compressed.
+   * Reinsert source EXIF into re-encoded JPEG output. False skips reinsertion;
+   * an original file returned by strict/canvas fallback can retain its metadata.
    * @type {boolean}
   */
   retainExif: false,
@@ -149,9 +150,6 @@ var DEFAULTS = {
    */
   error: null,
 };
-
-const IS_BROWSER = typeof window !== 'undefined' && typeof window.document !== 'undefined';
-const WINDOW = IS_BROWSER ? window : {};
 
 /**
  * Check if the given value is a positive number.
@@ -552,6 +550,458 @@ function dataURLtoBlob(dataURL) {
   return new Blob([bytes], { type: mime });
 }
 
+/** Shared transport for the three optional server conversion helpers. */
+async function convert(file, endpoint, format, options = {}) {
+  const form = new FormData();
+  form.append('file', file);
+
+  const res = await fetch(endpoint, {
+    method: 'POST',
+    body: form,
+    signal: options.signal,
+    headers: options.headers,
+    credentials: options.credentials,
+  });
+
+  if (!res.ok) {
+    let message = `Server responded ${res.status}`;
+    try {
+      const json = await res.json();
+      if (json.error) message = json.error;
+    } catch (e) { /* response was not JSON */ }
+    throw new Error(`${format.toUpperCase()} conversion failed: ${message}`);
+  }
+
+  const blob = await res.blob();
+  const originalName = file.name || `image.${format}`;
+  const outputName = res.headers.get('X-Original-Name') || `${originalName.replace(/\.[^.]+$/, '')}.jpg`;
+  return new File([blob], outputName, { type: 'image/jpeg' });
+}
+
+/**
+ * HEIC client-side utilities
+ *
+ * These helpers detect HEIC/HEIF files and convert them via the server-side
+ * endpoint before passing the result to PixSqueeze.js.  No WASM, no large
+ * dependencies in the browser — the bundled server decodes HEIC in a worker
+ * with heic-convert and uses Sharp to encode the intermediate PNG as JPEG.
+ *
+ * Usage:
+ *   import { isHeicFile, convertHeicOnServer } from '@alosha/pixsqueeze/heic';
+ *
+ *   async function handleFile(file) {
+ *     if (await isHeicFile(file)) {
+ *       file = await convertHeicOnServer(file);
+ *     }
+ *     new PixSqueeze(file, options);
+ *   }
+ */
+
+// ─── Detection ───────────────────────────────────────────────────────────────
+
+const HEIC_MIME_RE = /^image\/hei[cf]/i;
+
+/**
+ * Determine whether a File/Blob is HEIC/HEIF.
+ *
+ * iOS devices often set `file.type` to an empty string when sharing HEIC photos
+ * from the Photos app, so we fall back to reading the first 12 bytes and
+ * checking the ISO Base Media File Format `ftyp` box header.
+ *
+ * @param {File|Blob} file - The file to inspect.
+ * @returns {Promise<boolean>} Resolves to `true` if the file matches the expected format.
+ */
+async function isHeicFile(file) {
+  if (HEIC_MIME_RE.test(file.type)) return true;
+
+  // Only sniff bytes when the MIME type is absent or ambiguous
+  if (file.type && !file.type.startsWith('image/')) return false;
+
+  try {
+    const buffer = await file.slice(0, 12).arrayBuffer();
+    const bytes = new Uint8Array(buffer);
+    const ftyp = String.fromCharCode(bytes[4], bytes[5], bytes[6], bytes[7]);
+    const brand = String.fromCharCode(bytes[8], bytes[9], bytes[10], bytes[11]);
+    return ftyp === 'ftyp' && /^hei[cfxs]|^hevc|^mif1|^msf1/.test(brand);
+  } catch (e) {
+    return false;
+  }
+}
+
+// ─── Conversion ──────────────────────────────────────────────────────────────
+
+/**
+ * Upload a HEIC/HEIF file to the server conversion endpoint and get back a
+ * standard JPEG File object ready to pass into PixSqueeze.js.
+ *
+ * @param {File|Blob} file - The HEIC file to convert.
+ * @param {string} [endpoint='/api/convert/heic'] - Override the server URL if needed.
+ * @param {Object} [options={}] - Fetch request options; no timeout is added here.
+ * @param {AbortSignal} [options.signal] - Cancel the upload or response read.
+ * @param {HeadersInit} [options.headers] - Request headers; omit multipart Content-Type.
+ * @param {RequestCredentials} [options.credentials] - Fetch credentials policy.
+ * @returns {Promise<File>} A JPEG File with the same base name as the original.
+ * @throws {Error} If the network request fails or the server returns an error.
+ */
+async function convertHeicOnServer(file, endpoint = '/api/convert/heic', options = {}) {
+  return convert(file, endpoint, 'heic', options);
+}
+
+/**
+ * Camera RAW client-side utilities
+ *
+ * Detects camera RAW files (DNG, CR2, CR3, NEF, ARW, RAF, RW2, PEF, ORF …)
+ * and converts them via the server-side endpoint before passing the result to
+ * PixSqueeze.js.
+ *
+ * Recognized format candidates (actual decoding depends on the installed
+ * sharp/libvips/LibRaw build and camera variant; unsupported inputs return 422):
+ *   - DNG  — Adobe / Apple ProRAW (iOS)
+ *   - CR2 / CR3 — Canon
+ *   - NEF  — Nikon
+ *   - ARW  — Sony
+ *   - RAF  — Fujifilm
+ *   - RW2  — Panasonic
+ *   - PEF  — Pentax
+ *   - ORF  — Olympus
+ *   - SRW  — Samsung
+ *   - 3FR / DCR / KDC / MRW / NRW / RWL / X3F — others
+ *
+ * Usage:
+ *   import { isRawFile, convertRawOnServer } from '@alosha/pixsqueeze/raw';
+ *
+ *   async function handleFile(file) {
+ *     if (await isRawFile(file)) {
+ *       file = await convertRawOnServer(file);
+ *     }
+ *     new PixSqueeze(file, options);
+ *   }
+ */
+
+// ─── Detection ───────────────────────────────────────────────────────────────
+
+const RAW_MIME_RE = /^image\/(x-adobe-dng|x-canon-cr[23]|x-nikon-nef|x-sony-arw|x-fuji-raf|x-panasonic-rw2|x-pentax-pef|x-olympus-orf|x-samsung-srw)/i;
+const RAW_EXT_RE = /\.(dng|cr2|cr3|nef|arw|raf|rw2|pef|orf|srw|3fr|dcr|kdc|mrw|nrw|rwl|x3f)$/i;
+
+/**
+ * Determine whether a File/Blob is a camera RAW image.
+ *
+ * Checks MIME type and file extension first (most reliable).  If neither is
+ * present, falls back to magic-byte sniffing:
+ *   - Fujifilm RAF: "FUJIFILM" ASCII at offset 0
+ *   - Panasonic RW2: II U\0 (0x49 0x49 0x55 0x00) at offset 0
+ *   Note: DNG/CR2/NEF/ARW share TIFF magic bytes — they are indistinguishable
+ *   from regular TIFFs without an extension, so extension detection is
+ *   preferred for those formats.
+ *
+ * @param {File|Blob} file - The file to inspect.
+ * @returns {Promise<boolean>} Resolves to `true` if the file is a camera RAW image.
+ */
+async function isRawFile(file) {
+  if (RAW_MIME_RE.test(file.type)) return true;
+  if (RAW_EXT_RE.test(file.name || '')) return true;
+
+  try {
+    const buffer = await file.slice(0, 8).arrayBuffer();
+    const b = new Uint8Array(buffer);
+
+    // Fujifilm RAF — "FUJIFILM"
+    const raf = String.fromCharCode(b[0], b[1], b[2], b[3], b[4], b[5], b[6], b[7]);
+    if (raf === 'FUJIFILM') return true;
+
+    // Panasonic RW2 — II U\0
+    if (b[0] === 0x49 && b[1] === 0x49 && b[2] === 0x55 && b[3] === 0x00) return true;
+
+    return false;
+  } catch (e) {
+    return false;
+  }
+}
+
+// ─── Conversion ──────────────────────────────────────────────────────────────
+
+/**
+ * Upload a camera RAW file to the server conversion endpoint and get back a
+ * standard JPEG File object ready to pass into PixSqueeze.js.
+ *
+ * @param {File|Blob} file - The RAW file to convert.
+ * @param {string} [endpoint='/api/convert/raw'] - Override the server URL if needed.
+ * @param {Object} [options={}] - Fetch request options; no timeout is added here.
+ * @param {AbortSignal} [options.signal] - Cancel the upload or response read.
+ * @param {HeadersInit} [options.headers] - Request headers; omit multipart Content-Type.
+ * @param {RequestCredentials} [options.credentials] - Fetch credentials policy.
+ * @returns {Promise<File>} A JPEG File with the same base name as the original.
+ * @throws {Error} If the network request fails or the server returns an error.
+ */
+async function convertRawOnServer(file, endpoint = '/api/convert/raw', options = {}) {
+  return convert(file, endpoint, 'raw', options);
+}
+
+/**
+ * TIFF client-side utilities
+ *
+ * Detects TIFF files and converts them via the server-side endpoint before
+ * passing the result to PixSqueeze.js.
+ *
+ * Usage:
+ *   import { isTiffFile, convertTiffOnServer } from '@alosha/pixsqueeze/tiff';
+ *
+ *   async function handleFile(file) {
+ *     if (await isTiffFile(file)) {
+ *       file = await convertTiffOnServer(file);
+ *     }
+ *     new PixSqueeze(file, options);
+ *   }
+ */
+
+// ─── Detection ───────────────────────────────────────────────────────────────
+
+const TIFF_MIME_RE = /^image\/tiff/i;
+const TIFF_EXT_RE = /\.tiff?$/i;
+
+/**
+ * Determine whether a File/Blob is a TIFF image.
+ *
+ * Checks the MIME type and file extension first; falls back to reading the
+ * first 4 bytes and checking the TIFF magic number:
+ *   Little-endian: II*\0  (0x49 0x49 0x2A 0x00)
+ *   Big-endian:    MM\0*  (0x4D 0x4D 0x00 0x2A)
+ *
+ * @param {File|Blob} file - The file to inspect.
+ * @returns {Promise<boolean>} Resolves to `true` if the file matches the expected format.
+ */
+async function isTiffFile(file) {
+  if (TIFF_MIME_RE.test(file.type)) return true;
+  if (TIFF_EXT_RE.test(file.name || '')) return true;
+
+  if (file.type && !file.type.startsWith('image/')) return false;
+
+  try {
+    const buffer = await file.slice(0, 4).arrayBuffer();
+    const b = new Uint8Array(buffer);
+    return (b[0] === 0x49 && b[1] === 0x49 && b[2] === 0x2A && b[3] === 0x00)
+        || (b[0] === 0x4D && b[1] === 0x4D && b[2] === 0x00 && b[3] === 0x2A);
+  } catch (e) {
+    return false;
+  }
+}
+
+// ─── Conversion ──────────────────────────────────────────────────────────────
+
+/**
+ * Upload a TIFF file to the server conversion endpoint and get back a
+ * standard JPEG File object ready to pass into PixSqueeze.js.
+ * The bundled endpoint returns the first page of multi-page TIFF input.
+ *
+ * @param {File|Blob} file - The TIFF file to convert.
+ * @param {string} [endpoint='/api/convert/tiff'] - Override the server URL if needed.
+ * @param {Object} [options={}] - Fetch request options; no timeout is added here.
+ * @param {AbortSignal} [options.signal] - Cancel the upload or response read.
+ * @param {HeadersInit} [options.headers] - Request headers; omit multipart Content-Type.
+ * @param {RequestCredentials} [options.credentials] - Fetch credentials policy.
+ * @returns {Promise<File>} A JPEG File with the same base name as the original.
+ * @throws {Error} If the network request fails or the server returns an error.
+ */
+async function convertTiffOnServer(file, endpoint = '/api/convert/tiff', options = {}) {
+  return convert(file, endpoint, 'tiff', options);
+}
+
+function abortReason(signal) {
+  if (signal.reason !== undefined) return signal.reason;
+  return new DOMException('The compression process has been aborted.', 'AbortError');
+}
+
+// Race even file detection against cancellation; always consume late rejections.
+function abortable(work, signal) {
+  return new Promise((resolve, reject) => {
+    const onAbort = () => reject(abortReason(signal));
+    if (signal.aborted) {
+      onAbort();
+      return;
+    }
+    signal.addEventListener('abort', onAbort, { once: true });
+    Promise.resolve().then(work).then(resolve, reject).finally(() => {
+      signal.removeEventListener('abort', onAbort);
+    });
+  });
+}
+
+function encode(Compressor, file, options, signal) {
+  return new Promise((resolve, reject) => {
+    let job;
+    let settled = false;
+    const finish = (callback, value) => {
+      if (settled) return;
+      settled = true;
+      signal.removeEventListener('abort', onAbort);
+      callback(value);
+    };
+    const onAbort = () => {
+      finish(reject, abortReason(signal));
+      if (job) job.abort();
+    };
+    if (signal.aborted) {
+      onAbort();
+      return;
+    }
+    signal.addEventListener('abort', onAbort, { once: true });
+    try {
+      job = new Compressor(file, {
+        ...options,
+        success(result) {
+          finish(resolve, { file: result, width: this.outputWidth, height: this.outputHeight });
+        },
+        error(error) {
+          finish(reject, error);
+        },
+      });
+      // A synchronous drawing hook can abort before the constructor returns.
+      if (signal.aborted) job.abort();
+    } catch (error) {
+      finish(reject, error);
+    }
+  });
+}
+
+async function prepare(file, conversion, signal) {
+  // RAW extensions take precedence over their shared TIFF container signature.
+  const formats = [
+    ['raw', isRawFile, convertRawOnServer],
+    ['heic', isHeicFile, convertHeicOnServer],
+    ['tiff', isTiffFile, convertTiffOnServer],
+  ];
+  for (const [format, detect, convert] of formats) {
+    if (await abortable(() => detect(file), signal)) {
+      const endpoint = conversion && conversion[format];
+      if (typeof endpoint !== 'string' || !endpoint.trim()) {
+        throw new Error(`${format.toUpperCase()} requires server conversion. Configure conversion.${format} to allow uploading this file.`);
+      }
+      const result = await abortable(() => convert(file, endpoint, { ...conversion, signal }), signal);
+      return { file: result, converted: true };
+    }
+  }
+  return { file, converted: false };
+}
+
+/** Orchestrates the opt-in Promise API without changing the callback constructor. */
+async function compress(Compressor, file, options = {}) {
+  if (!isBlob(file)) throw new TypeError('The first argument must be a File or Blob object.');
+  if (!options || typeof options !== 'object') throw new TypeError('Options must be an object.');
+  const {
+    targetSize = null,
+    maxAttempts = 8,
+    minQuality = 0.4,
+    allowResize = false,
+    conversion,
+    signal: externalSignal,
+    timeout = 30000,
+    ...requested
+  } = options;
+  if (targetSize !== null && (!Number.isSafeInteger(targetSize) || targetSize < 1)) {
+    throw new RangeError('targetSize must be a positive integer number of bytes.');
+  }
+  if (!Number.isInteger(maxAttempts) || maxAttempts < 1 || maxAttempts > 20) {
+    throw new RangeError('maxAttempts must be an integer from 1 to 20.');
+  }
+  const quality = requested.quality === undefined ? DEFAULTS.quality : requested.quality;
+  if (!Number.isFinite(quality) || quality < 0 || quality > 1) {
+    throw new RangeError('quality must be between 0 and 1.');
+  }
+  if (!Number.isFinite(minQuality) || minQuality < 0 || minQuality > 1) {
+    throw new RangeError('minQuality must be between 0 and 1.');
+  }
+  if (!Number.isFinite(timeout) || timeout < 0 || timeout > 2147483647) {
+    throw new RangeError('timeout must be between 0 and 2147483647 milliseconds.');
+  }
+
+  const controller = new AbortController();
+  const { signal } = controller;
+  const forwardAbort = () => controller.abort(abortReason(externalSignal));
+  if (externalSignal) {
+    if (externalSignal.aborted) forwardAbort();
+    else externalSignal.addEventListener('abort', forwardAbort, { once: true });
+  }
+  const timer = timeout > 0 ? setTimeout(() => {
+    controller.abort(new DOMException('Image compression timed out.', 'TimeoutError'));
+  }, timeout) : null;
+
+  try {
+    if (signal.aborted) throw abortReason(signal);
+    const source = await prepare(file, conversion, signal);
+    const baseOptions = { ...requested, quality };
+    // Async results belong to the Promise; callback options are ignored.
+    delete baseOptions.success;
+    delete baseOptions.error;
+    let attempts = 0;
+    const attempt = async (settings) => {
+      attempts += 1;
+      return encode(Compressor, source.file, settings, signal);
+    };
+    let best = await attempt(baseOptions);
+    const fits = (result) => result.file.size <= targetSize;
+    const select = (candidate) => {
+      if (candidate.file.size < best.file.size) best = candidate;
+    };
+
+    if (targetSize !== null && !fits(best)) {
+      // Search from the original decoded input on every attempt, never from a
+      // previously encoded JPEG. PNG and fallback encoders skip quality search.
+      const lossy = ['image/jpeg', 'image/webp'].includes(best.file.type);
+      let low = Math.min(minQuality, quality);
+      let high = quality;
+      if (lossy && low < high && attempts < maxAttempts) {
+        const smallest = await attempt({ ...baseOptions, quality: low });
+        select(smallest);
+        if (fits(smallest)) {
+          best = smallest;
+          while (attempts < maxAttempts && high - low > 0.01) {
+            const nextQuality = (low + high) / 2;
+            const next = await attempt({ ...baseOptions, quality: nextQuality });
+            if (fits(next)) {
+              best = next;
+              low = nextQuality;
+            } else high = nextQuality;
+          }
+        }
+      }
+
+      let previous = best;
+      while (!fits(best) && allowResize && attempts < maxAttempts) {
+        const factor = Math.max(0.1, Math.min(0.85, Math.sqrt(targetSize / previous.file.size) * 0.9));
+        const minWidth = Math.max(1, Math.ceil(Number(baseOptions.minWidth) || 1));
+        const minHeight = Math.max(1, Math.ceil(Number(baseOptions.minHeight) || 1));
+        // Keep the aspect ratio while respecting both minimum dimensions.
+        const scale = Math.max(factor, minWidth / previous.width, minHeight / previous.height);
+        if (scale >= 1) break;
+        const width = Math.max(minWidth, Math.floor(previous.width * scale));
+        const height = Math.max(minHeight, Math.floor(previous.height * scale));
+        if (width >= previous.width && height >= previous.height) break;
+        previous = await attempt({ ...baseOptions, width, height, quality: low, strict: false });
+        select(previous);
+      }
+    }
+
+    if (signal.aborted) throw abortReason(signal);
+    return {
+      ...best,
+      originalSize: file.size,
+      outputSize: best.file.size,
+      mimeType: best.file.type,
+      targetSize,
+      targetMet: targetSize === null ? null : fits(best),
+      attempts,
+      converted: source.converted,
+      returnedOriginal: best.file === file,
+    };
+  } finally {
+    clearTimeout(timer);
+    if (externalSignal) externalSignal.removeEventListener('abort', forwardAbort);
+  }
+}
+
+const IS_BROWSER = typeof window !== 'undefined' && typeof window.document !== 'undefined';
+const WINDOW = IS_BROWSER ? window : {};
+
 const { FileReader, URL, PixSqueeze: AnotherPixSqueeze } = WINDOW;
 const REGEXP_EXTENSION = /\.\w+$/;
 
@@ -655,18 +1105,22 @@ class PixSqueeze {
     const { file, image } = this;
 
     image.onload = () => {
-      if (isCanvasAvailable()) {
-        this.draw({
-          ...data,
-          naturalWidth: image.naturalWidth,
-          naturalHeight: image.naturalHeight,
-        });
-      } else {
-        this.done({
-          naturalWidth: image.naturalWidth,
-          naturalHeight: image.naturalHeight,
-          result: null,
-        });
+      try {
+        if (isCanvasAvailable()) {
+          this.draw({
+            ...data,
+            naturalWidth: image.naturalWidth,
+            naturalHeight: image.naturalHeight,
+          });
+        } else {
+          this.done({
+            naturalWidth: image.naturalWidth,
+            naturalHeight: image.naturalHeight,
+            result: null,
+          });
+        }
+      } catch (error) {
+        this.fail(error);
       }
     };
     image.onabort = () => {
@@ -769,6 +1223,8 @@ class PixSqueeze {
 
     canvas.width = width;
     canvas.height = height;
+    this.outputWidth = width;
+    this.outputHeight = height;
 
     if (!isImageType(options.mimeType)) {
       options.mimeType = file.type;
@@ -862,6 +1318,8 @@ class PixSqueeze {
         )
       ) {
         result = file;
+        this.outputWidth = naturalWidth;
+        this.outputHeight = naturalHeight;
       } else {
         const fileName = (file.name && result.type !== file.type)
           ? file.name.replace(REGEXP_EXTENSION, imageTypeToExtension(result.type))
@@ -874,6 +1332,8 @@ class PixSqueeze {
     } else {
       // Returns original file if the result is null in some cases.
       result = file;
+      this.outputWidth = naturalWidth;
+      this.outputHeight = naturalHeight;
     }
 
     this.result = result;
@@ -885,6 +1345,14 @@ class PixSqueeze {
 
   fail(err) {
     const { options } = this;
+
+    // Releasing a URL while an image is still loading can emit a late error.
+    // A failed or cancelled job must not call the error callback a second time.
+    this.image.onload = null;
+    this.image.onerror = null;
+    if (this.image.src.startsWith('blob:')) {
+      URL.revokeObjectURL(this.image.src);
+    }
 
     if (options.error) {
       options.error.call(this, err);
@@ -923,6 +1391,25 @@ class PixSqueeze {
    */
   static setDefaults(options) {
     Object.assign(DEFAULTS, options);
+  }
+
+  /**
+   * Compress locally, optionally using explicitly configured conversion routes.
+   * The callback constructor remains independent of this Promise workflow.
+   * @param {File|Blob} file - Original input; conversion is opt-in per format.
+   * @param {Object} [options] - Ordinary options, excluding success/error, plus:
+   * @param {number} [options.targetSize] - Positive integer byte target (best effort).
+   * @param {number} [options.maxAttempts=8] - Total encoding budget, from 1 to 20.
+   * @param {number} [options.minQuality=0.4] - Lower search bound, from 0 to 1.
+   * @param {boolean} [options.allowResize=false] - Allow smaller dimensions.
+   * @param {Object} [options.conversion] - heic/tiff/raw endpoint URLs and request options.
+   * @param {AbortSignal} [options.signal] - Cancel the operation and discard late output.
+   * @param {number} [options.timeout=30000] - Total milliseconds; 0 disables the deadline.
+   * @returns {Promise<Object>} Output file, dimensions, sizes, targetMet, and attempt/conversion flags.
+   * An unmet target resolves with targetMet:false; processing failures reject.
+   */
+  static compress(file, options) {
+    return compress(PixSqueeze, file, options);
   }
 }
 

@@ -1,5 +1,5 @@
 import js from '@eslint/js';
-import importX from 'eslint-plugin-import-x';
+import { flatConfigs } from 'eslint-plugin-import-x';
 import globals from 'globals';
 
 export default [
@@ -7,7 +7,7 @@ export default [
   js.configs.recommended,
 
   // ── Import plugin ───────────────────────────────────────────────────────
-  importX.flatConfigs.recommended,
+  flatConfigs.recommended,
 
   // ── Main source + config files ──────────────────────────────────────────
   {
@@ -77,7 +77,7 @@ export default [
 
   // ── Server + API files (Node.js — console logging is intentional) ──────────
   {
-    files: ['server/**/*.js', 'api/**/*.js'],
+    files: ['server/**/*.js', 'api/**/*.js', 'test/**/*.cjs'],
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: 'commonjs',
@@ -89,6 +89,26 @@ export default [
     rules: {
       'no-console': 'off',
       'import-x/no-unresolved': 'off',
+    },
+  },
+
+  // ── Self-contained local playground ─────────────────────────────────────
+  {
+    files: ['docs/js/local-demo.js'],
+    languageOptions: {
+      globals: globals.browser,
+    },
+  },
+
+  // ── Examples (Node.js ES modules) ────────────────────────────────────────
+  {
+    files: ['examples/**/*.mjs'],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: 'module',
+      globals: {
+        ...globals.node,
+      },
     },
   },
 
@@ -106,6 +126,6 @@ export default [
 
   // ── Ignored paths ───────────────────────────────────────────────────────
   {
-    ignores: ['dist/**', 'docs/js/**', 'node_modules/**', 'coverage/**'],
+    ignores: ['dist/**', 'docs/js/pixsqueeze.js', 'docs/js/main.js', 'node_modules/**', 'coverage/**'],
   },
 ];

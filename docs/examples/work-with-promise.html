@@ -53,7 +53,7 @@
 <body>
   <nav class="nav-bar">
     <div class="nav-inner">
-      <a class="nav-back" href="../index.html">
+      <a class="nav-back" href="../local.html">
         <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" fill="none" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
         PixSqueeze
       </a>
@@ -67,7 +67,7 @@
 
   <main class="main">
     <p class="page-title">Work with Promise</p>
-    <p class="page-subtitle">Easy to emulate a complete hook function with <code>Promise.prototype.finally()</code></p>
+    <p class="page-subtitle">Use <code>PixSqueeze.compress()</code> with a 25 KB target, optional resizing, and an explicit target result.</p>
     <hr class="divider">
     <div class="grid">
       <div class="card">
@@ -94,20 +94,27 @@
       var xhr = new XMLHttpRequest();
 
       xhr.onload = function () {
-        new Promise((resolve, reject) => {
-          new PixSqueeze(xhr.response, {
-            success: resolve,
-            error: reject,
-          });
+        PixSqueeze.compress(xhr.response, {
+          mimeType: 'image/jpeg',
+          targetSize: 25_000,
+          allowResize: true,
         }).then((result) => {
           var newImage = new Image();
 
-          newImage.src = URL.createObjectURL(result);
+          newImage.src = URL.createObjectURL(result.file);
           newImage.alt = 'Compressed image';
           output.innerHTML = '';
           output.appendChild(newImage);
+          var details = document.createElement('p');
+          details.textContent = Math.round(result.outputSize / 1000) + ' KB · '
+            + (result.targetMet ? 'Target reached' : 'Target not reached')
+            + ' · ' + result.attempts + ' encoding attempt(s)';
+          output.appendChild(details);
+          window.addEventListener('pagehide', function () {
+            URL.revokeObjectURL(newImage.src);
+          }, { once: true });
         }).catch((err) => {
-          window.alert(err.message);
+          output.textContent = err.message;
         });
       };
 

@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PixSqueeze — Local playground</title>
+  <link rel="icon" href="/images/pixsqueeze-logo-128.png">
+  <link rel="stylesheet" href="/css/local-demo.css">
+  <script src="/js/pixsqueeze.js" defer></script>
+  <script src="/js/local-demo.js" defer></script>
+</head>
+<body>
+  <main>
+    <header>
+      <img src="/images/pixsqueeze-logo-128.png" width="48" height="48" alt="">
+      <div><p class="eyebrow">LOCAL PLAYGROUND</p><h1>Make room for your images.</h1></div>
+    </header>
+    <p>Resize, compress, and download an image. JPEG, PNG, and WebP stay in your browser.</p>
+    <form id="compress-form">
+      <label class="file-picker" for="image-file">Choose an image
+        <input id="image-file" type="file" required accept="image/*,.heic,.heif,.tif,.tiff,.dng,.cr2,.cr3,.nef,.arw,.raf,.rw2,.pef,.orf,.srw">
+      </label>
+      <div class="settings">
+        <label>Output format
+          <select id="format"><option value="auto">Keep original</option><option value="image/jpeg">JPEG</option><option value="image/webp">WebP</option><option value="image/png">PNG</option></select>
+        </label>
+        <label>Quality <input id="quality" type="number" min="0" max="1" step="0.05" value="0.8" required></label>
+        <label>Maximum width (pixels) <input id="max-width" type="number" min="1" step="1" placeholder="Original width"></label>
+        <label>Target size (KB) <input id="target-size" type="number" min="1" step="1" placeholder="Optional, e.g. 500"></label>
+      </div>
+      <label class="check"><input id="allow-resize" type="checkbox"> Allow smaller dimensions to meet the target size</label>
+      <label class="check"><input id="allow-conversion" type="checkbox"> Allow HEIC, TIFF, and RAW uploads to this server for conversion</label>
+      <p class="hint">Server conversion returns JPEG before browser compression. RAW support depends on the server’s installed decoder. A target size is best effort and may be unattainable.</p>
+      <div class="actions"><button id="compress" type="submit">Compress image</button><button id="cancel" type="button" disabled>Cancel</button></div>
+    </form>
+    <p id="status" role="status" aria-live="polite">Choose an image to get started.</p>
+    <section id="result" hidden aria-label="Compression result">
+      <div class="previews">
+        <figure><figcaption>Original</figcaption><img id="original-preview" alt="Original image preview"><p id="original-details"></p></figure>
+        <figure><figcaption>Output</figcaption><img id="output-preview" alt="Compressed image preview"><p id="output-details"></p></figure>
+      </div>
+      <p id="summary"></p>
+      <a id="download" class="download">Download image</a>
+    </section>
+    <footer>Powered by the local PixSqueeze build. <a href="https://pixsqueeze.alosha.dev/demo">Open the hosted demo</a></footer>
+  </main>
+</body>
+</html>

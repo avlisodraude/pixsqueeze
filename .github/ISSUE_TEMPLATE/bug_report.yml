@@ -9,8 +9,8 @@ body:
         This form is only for submitting bug reports. If you have a usage question
         or are unsure if this is really a bug, make sure to:
 
-        - Read the [docs](https://fengyuanchen.github.io/compressorjs)
-        - Ask on [GitHub Discussions](https://github.com/fengyuanchen/compressorjs/discussions)
+        - Read the [docs](https://pixsqueeze.alosha.dev/demo)
+        - Ask on [GitHub Discussions](https://github.com/avlisodraude/pixsqueeze/discussions)
         - Look for / ask questions on [Stack Overflow](https://stackoverflow.com/questions/ask?tags=compressorjs)
 
         Also try to search for your issue - it may have already been answered or even fixed in the development branch.
@@ -19,7 +19,7 @@ body:
   - type: input
     id: version
     attributes:
-      label: Compressor version
+      label: PixSqueeze version
     validations:
       required: true
   - type: input
@@ -27,9 +27,10 @@ body:
     attributes:
       label: Link to minimal reproduction
       description: |
-        The easiest way to provide a reproduction is by showing the bug in the [Playground](https://fengyuanchen.github.io/compressorjs).
+        The easiest way to provide a reproduction is by showing the bug in the [Playground](https://pixsqueeze.alosha.dev/demo).
         If it cannot be reproduced in the playground and requires a proper build setup, try [StackBlitz](https://stackblitz.com/?starters=frontend).
-        If neither of these are suitable, you can always provide a GitHub repository.
+        For the latest repository build, run `npm ci`, `npm run build`, and `npm run server`, then open `http://localhost:3000`.
+        If neither hosted sandbox is suitable, you can always provide a GitHub repository.
 
         The reproduction should be **minimal** - i.e. it should contain only the bare minimum amount of code needed
         to show the bug.
@@ -63,11 +64,11 @@ body:
     id: system-info
     attributes:
       label: System Info
-      description: Output of `npx envinfo --system --npmPackages compressorjs --binaries --browsers`
+      description: Output of `npx envinfo --system --npmPackages @alosha/pixsqueeze --binaries --browsers`
       render: shell
       placeholder: System, Binaries, Browsers
   - type: textarea
     id: additional-comments
     attributes:
       label: Any additional comments?
-      description: e.g. some background/context of how you ran into this bug.
+      description: Include whether you used the callback or Promise API, target-size options and returned targetMet, conversion endpoints and HTTP status, and the actual input/output MIME types. For RAW conversion, include the camera format and server decoder details. Remove API keys and private images.
